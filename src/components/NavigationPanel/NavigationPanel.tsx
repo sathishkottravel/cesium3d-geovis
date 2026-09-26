@@ -45,7 +45,7 @@ export function NavigationPanel({ onAirport }: NavigationPanelProps) {
         <input
           value={ident}
           onChange={(e) => setIdent(e.target.value)}
-          placeholder="ICAO, e.g. ESSA"
+          placeholder="ICAO, e.g. MGGT"
           aria-label="Airport ICAO code"
         />
         <button type="submit" disabled={status !== "connected" || !ident.trim()}>

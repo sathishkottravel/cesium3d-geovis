@@ -7,14 +7,14 @@ Geospatial visualization app built with [CesiumJS](https://cesium.com/platform/c
 
 **Live demo:** https://sathishkottravel.github.io/cesium3d-geovis/
 
-![Cesium3D GeoVis web app showing the globe with Session and Navigation data panels](docs/screenshot.png)
+![Cesium3D GeoVis web app after looking up MGGT with the standalone WASM transport; the camera is over Guatemala City with a marker on the airport](docs/screenshot.png)
 
 Navigation data comes through one of three **transports**, chosen at build time:
 
 | Transport | Backed by | Needs |
 | --- | --- | --- |
-| `standalone` (default) | `public/wasm/navigation-standalone.wasm` | the WASM binary |
-| `msfs` | `public/wasm/navigation-msfs.wasm` (Navigraph / MSFS) | the WASM binary |
+| `standalone` (default) | `public/wasm/standalone/msfs_navigation_data_interface.wasm` (Navigraph) | nothing extra; runs in the browser via a WASI shim |
+| `msfs` | `public/wasm/msfs-2020/msfs_navigation_data_interface.wasm` (Navigraph MSFS gauge) | MSFS SDK host functions (not implemented yet) |
 | `api` | remote HTTP backend | `VITE_API_BASE_URL` |
 
 ## Architecture
@@ -115,16 +115,23 @@ Electron files:
 
 ## Transports
 
-### Standalone and MSFS (WASM)
+### Standalone (WASM)
 
-Put the compiled binaries in `public/wasm/`:
+`public/wasm/standalone/msfs_navigation_data_interface.wasm` is the standalone build of the [Navigraph navigation data interface](https://github.com/Navigraph/msfs-navigation-data-interface). `src/navigation/navigraph/NavigraphWasmHost.ts` hosts it:
 
-```
-public/wasm/navigation-standalone.wasm
-public/wasm/navigation-msfs.wasm
-```
+- **WASI:** provided by [`@bjorn3/browser_wasi_shim`](https://github.com/bjorn3/browser_wasi_shim). The module only needs a clock, randomness and stdout; it doesn't access any files.
+- **Requests:** the JSON `{ id, function, data }` is written into module memory with `navigraph_alloc`, then passed to `navigraph_call_function(ptr, len)`.
+- **Responses:** the module calls the `navigraph.send_message(namePtr, nameLen, dataPtr, dataLen)` import. `NAVIGRAPH_FunctionResult` messages carry `{ id, status, data }`, and `NAVIGRAPH_Event` messages carry things like `Heartbeat`.
+- **Async work:** `navigraph_update()` is pumped every 50 ms.
+- **Functions:** the same set as the MSFS interface: `GetAirport`, `GetWaypoints`, `GetAirportsInRange`, `ExecuteSQLQuery`, `GetDatabaseInfo`, and more.
 
-Both builds serve them from `<base>/wasm/`. `src/navigation/WasmLoader.ts` streams the module when the server sends `application/wasm`, and otherwise falls back to `ArrayBuffer` instantiation (needed for Electron's `file://`). Until the real binaries are in place, the UI shows a "WASM module not found" message. The data methods in `src/navigation/transports/WasmTransport.ts` are stubs, waiting for the module's exported bindings.
+The bundled binary embeds a mock database (AIRAC 2401) with 16 airports in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP`.
+
+`src/navigation/WasmLoader.ts` compiles modules with streaming when the server sends `application/wasm`. Otherwise it falls back to `ArrayBuffer` compilation, which is what Electron's `file://` needs.
+
+### MSFS (WASM)
+
+`public/wasm/msfs-2020/msfs_navigation_data_interface.wasm` is the MSFS 2020 gauge build. On top of WASI, it imports MSFS SDK functions (`fsCommBus*`, `fsNetworkHttpRequest*`) that only the simulator provides. Until those are shimmed, the `msfs` transport fails to instantiate with a `LinkError`.
 
 ### API
 
@@ -175,7 +182,7 @@ git push --follow-tags       # pushes the vX.Y.Z tag and triggers release-electr
 src/
   app/            App shell, routes, MapView
   components/     CesiumMap, FlightPanel, NavigationPanel
-  navigation/     NavigationDataInterface, WasmLoader, types, transports/
+  navigation/     NavigationDataInterface, WasmLoader, types, transports/, navigraph/ (WASM host)
   api/            HTTP client + navigation endpoints
   services/       NavigationService (transport factory)
   runtime/        web/electron runtime detection
@@ -183,6 +190,6 @@ src/
   cesiumSetup.ts  CESIUM_BASE_URL
   main.tsx        entry point
 electron/         main + preload
-public/wasm/      navigation WASM binaries (placeholders)
+public/wasm/      navigation WASM binaries (standalone/, msfs-2020/)
 .github/workflows deploy-web.yml, release-electron.yml
 ```

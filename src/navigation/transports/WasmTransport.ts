@@ -2,8 +2,9 @@ import { loadWasm } from "../WasmLoader";
 import type { Airport, Coordinates, NavigationTransport, TransportKind, Waypoint } from "../types";
 
 /**
- * Shared base for the WASM-backed transports. The binaries are placeholders
- * for now, so data calls throw until real module bindings are wired in.
+ * Generic WASM transport, used by the msfs transport. The msfs-2020 build is an
+ * MSFS gauge module that imports MSFS SDK functions (fsCommBus*, fsNetwork*),
+ * which are not provided here yet, so connect() fails with a LinkError.
  */
 export abstract class WasmTransport implements NavigationTransport {
   abstract readonly kind: TransportKind;
