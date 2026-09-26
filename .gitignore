@@ -9,3 +9,4 @@ out/
 !.env.example
 steps.md
 .claude/settings.local.json
+history.md
