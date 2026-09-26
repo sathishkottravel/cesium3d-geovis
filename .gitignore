@@ -8,3 +8,4 @@ out/
 .env.*
 !.env.example
 steps.md
+.claude/settings.local.json
