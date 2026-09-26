@@ -24,7 +24,7 @@ export const appConfig: AppConfig = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787/api/v1",
   cesiumIonToken: import.meta.env.VITE_CESIUM_ION_TOKEN || undefined,
   wasm: {
-    standalone: `${base}wasm/navigation-standalone.wasm`,
-    msfs: `${base}wasm/navigation-msfs.wasm`,
+    standalone: `${base}wasm/standalone/msfs_navigation_data_interface.wasm`,
+    msfs: `${base}wasm/msfs-2020/msfs_navigation_data_interface.wasm`,
   },
 };

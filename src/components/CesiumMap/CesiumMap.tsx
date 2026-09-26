@@ -1,5 +1,5 @@
 import { Cartesian3, Color, Ion } from "cesium";
-import { Entity, Viewer } from "resium";
+import { CameraFlyTo, Entity, Viewer } from "resium";
 import { appConfig } from "../../config/appConfig";
 import type { Airport } from "../../navigation/types";
 
@@ -14,6 +14,18 @@ interface CesiumMapProps {
 export function CesiumMap({ airport }: CesiumMapProps) {
   return (
     <Viewer full timeline={false} animation={false}>
+      {airport && (
+        <CameraFlyTo
+          key={airport.ident}
+          destination={Cartesian3.fromDegrees(
+            airport.location.longitude,
+            airport.location.latitude,
+            50_000,
+          )}
+          duration={2}
+          once
+        />
+      )}
       {airport && (
         <Entity
           name={`${airport.ident} — ${airport.name}`}

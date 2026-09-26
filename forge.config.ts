@@ -8,6 +8,8 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Linux makers (deb/rpm) look for a binary named after package.json "name".
+    executableName: "cesium3d-geovis",
   },
   rebuildConfig: {},
   makers: [

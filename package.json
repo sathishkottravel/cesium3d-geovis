@@ -17,6 +17,7 @@
     "electron:make": "electron-forge make"
   },
   "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
     "cesium": "^1.145.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
