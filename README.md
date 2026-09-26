@@ -5,6 +5,10 @@ Geospatial visualization app built with [CesiumJS](https://cesium.com/platform/c
 - **web**: a static site deployed to GitHub Pages
 - **electron**: a desktop app packaged with Electron Forge and published as release artifacts
 
+**Live demo:** https://sathishkottravel.github.io/cesium3d-geovis/
+
+![Cesium3D GeoVis web app showing the globe with Session and Navigation data panels](docs/screenshot.png)
+
 Navigation data comes through one of three **transports**, chosen at build time:
 
 | Transport | Backed by | Needs |
