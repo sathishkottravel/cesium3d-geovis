@@ -118,6 +118,8 @@ Makers are configured in `forge.config.ts`:
 
 A maker only builds for the host OS, so each platform's artifacts come from the CI matrix.
 
+`electron:start` runs its own Vite dev server on port 5173, or the next free port when 5173 is taken (for example by `bun run dev`). That matters for the API data source's CORS settings: see [CORS for local development](#cors-for-local-development).
+
 Electron files:
 
 - `electron/main.ts`: creates the window and loads the Vite dev server URL in development or the bundled `index.html` when packaged
@@ -170,7 +172,26 @@ bun run serve   # http://localhost:3000, Swagger UI at /docs
 | GET | `/airports/:ident` | Navigraph airport; `404` (unknown) or `400` (malformed ident) means no result |
 | GET | `/waypoints/:ident` | Navigraph waypoints; `404` means no match |
 
-The responses are raw Navigraph records (`location: { lat, long }`, `elevation`, …). They are mapped to the app model in `src/navigation/navigraph/mappers.ts`, the same mapping the standalone transport uses. The demo allows CORS from `http://localhost:5173` by default. For other origins, like the GitHub Pages site, set its `CORS_ORIGINS`.
+The responses are raw Navigraph records (`location: { lat, long }`, `elevation`, …). They are mapped to the app model in `src/navigation/navigraph/mappers.ts`, the same mapping the standalone transport uses.
+
+#### CORS for local development
+
+The app and the backend run on different origins, so the backend must allow the app's origin. By default the demo allows only `http://localhost:5173`. Allow more by setting its `CORS_ORIGINS`, a comma-separated list matched exactly:
+
+| App runs as | Origin to allow |
+| --- | --- |
+| `bun run dev` | `http://localhost:5173` |
+| `bun run electron:start` | `http://localhost:5173`, or the next free port (5174, …) when 5173 is taken, e.g. by `bun run dev`; Forge prints the actual URL |
+| Packaged Electron app | `null`, since pages loaded from `file://` send `Origin: null`. Use this only on a development machine: it also admits any local file and sandboxed iframes |
+| GitHub Pages | `https://<user>.github.io` |
+
+```sh
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174 bun run serve
+# also the packaged Electron app (local development only):
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174,null bun run serve
+```
+
+A blocked origin shows as `Failed to fetch` in the Navigation data panel, and the devtools console names the origin.
 
 ## CI/CD
 
