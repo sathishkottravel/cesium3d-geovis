@@ -14,6 +14,8 @@ export interface AppConfig {
   apiBaseUrl: string;
   cesiumIonToken?: string;
   wasm: Record<Exclude<TransportKind, "api">, string>;
+  /** glTF model of the aircraft in the flight animation. */
+  aircraftModel: string;
 }
 
 // BASE_URL is "/" in dev, "/<repo>/" on GitHub Pages and "./" in Electron.
@@ -28,4 +30,5 @@ export const appConfig: AppConfig = {
     standalone_remote: `${base}wasm/standalone/remote/standalone_navigation_data_interface.wasm`,
     msfs: `${base}wasm/msfs-2020/msfs_navigation_data_interface.wasm`,
   },
+  aircraftModel: `${base}models/CesiumAir/Cesium_Air.glb`,
 };

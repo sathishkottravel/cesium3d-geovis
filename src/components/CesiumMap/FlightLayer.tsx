@@ -6,10 +6,12 @@ import {
   LagrangePolynomialApproximation,
   Rectangle,
   SampledPositionProperty,
+  VelocityOrientationProperty,
   type Clock as CesiumClock,
 } from "cesium";
 import { useEffect, useMemo, useRef } from "react";
 import { CameraFlyTo, Clock, Entity } from "resium";
+import { appConfig } from "../../config/appConfig";
 import type { FlightPlan } from "../../flight/flightPlan";
 
 const FT_TO_M = 0.3048;
@@ -55,10 +57,13 @@ export function FlightLayer({ plan, playing, speed, follow, onElapsed }: FlightL
     // geometry, and the Viewer pauses the clock until it is ready (the animation would run slow).
     const graphics = {
       route: { positions: route, width: 2, material: Color.WHITE.withAlpha(0.6) },
-      aircraft: { pixelSize: 10, color: Color.YELLOW, outlineColor: Color.BLACK, outlineWidth: 2 },
+      // Stays at least 64 px wide when zoomed out, like Cesium's Sandcastle examples.
+      aircraft: { uri: appConfig.aircraftModel, minimumPixelSize: 64, maximumScale: 20_000 },
       trail: { leadTime: 0, trailTime: plan.durationSec, width: 3, material: Color.ORANGE },
     };
-    return { start, stop, position, overview, graphics };
+    // Points the model's nose along its direction of travel.
+    const orientation = new VelocityOrientationProperty(position);
+    return { start, stop, position, orientation, overview, graphics };
   }, [plan]);
 
   // Keep the latest callback without re-binding the Clock's onTick.
@@ -91,7 +96,8 @@ export function FlightLayer({ plan, playing, speed, follow, onElapsed }: FlightL
       <Entity
         name="Aircraft"
         position={flight.position}
-        point={flight.graphics.aircraft}
+        orientation={flight.orientation}
+        model={flight.graphics.aircraft}
         path={flight.graphics.trail}
         tracked={follow}
       />
