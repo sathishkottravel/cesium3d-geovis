@@ -62,6 +62,7 @@ The **Flight** section of the Session panel plans a direct flight between two ai
 
 - **Route:** the great circle between the two airports, flown at a constant 450 kt. The aircraft climbs and descends at about 300 ft per nm (roughly 3°) from and to field elevation, and cruises at 35,000 ft. Short hops level off below cruise.
 - **Real time:** at `1×` the animation takes as long as the flight. `10×`, `60×` and `600×` speed it up; you can change speed while the flight is running.
+- **Aircraft:** a 3D model that points its nose along its direction of travel. It's Cesium's sample `Cesium_Air.glb`, used under Apache-2.0; see `public/models/README.md`.
 - **Controls:** Pause/Resume, Restart, and **Follow aircraft** (the camera tracks it). The panel shows elapsed and total time, altitude, and when the aircraft has arrived.
 
 The planning math is in `src/flight/flightPlan.ts` (plain TS, unit tested). The map layer is `src/components/CesiumMap/FlightLayer.tsx`: a Resium `<Clock>` whose multiplier is the playback speed, driving a `SampledPositionProperty`. Its entity graphics are created once per plan. Recreating them on each render makes Cesium rebuild the geometry, and the Viewer pauses the clock while it does, which slows the animation down.

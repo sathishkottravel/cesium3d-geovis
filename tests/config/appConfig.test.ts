@@ -73,6 +73,11 @@ describe("WASM URLs per runtime base (BASE_URL)", () => {
     });
   });
 
+  it.each(["/", "/cesium3d-geovis/", "./"])("resolves the aircraft model under the base %j", async (base) => {
+    const config = await loadConfig({ BASE_URL: base });
+    expect(config.aircraftModel).toBe(`${base}models/CesiumAir/Cesium_Air.glb`);
+  });
+
   it("does not define a WASM URL for the api transport", async () => {
     expect(Object.keys((await loadConfig({})).wasm)).not.toContain("api");
   });

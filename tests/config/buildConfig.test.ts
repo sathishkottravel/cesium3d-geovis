@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { ConfigEnv, UserConfig, UserConfigFnObject } from "vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
@@ -71,5 +71,25 @@ describe("shipped WASM binaries", () => {
     for (const [transport, url] of Object.entries(appConfig.wasm)) {
       expect(existsSync(path.join(projectRoot, "public", url)), `${transport}: ${url}`).toBe(true);
     }
+  });
+});
+
+describe("shipped aircraft model", () => {
+  it("exists in public/ as a binary glTF (GLB) file", async () => {
+    vi.stubEnv("BASE_URL", "/");
+    vi.resetModules();
+    const { appConfig } = await import("../../src/config/appConfig");
+    const file = path.join(projectRoot, "public", appConfig.aircraftModel);
+    expect(existsSync(file), appConfig.aircraftModel).toBe(true);
+    // GLB header: magic "glTF", then container version 2.
+    const header = readFileSync(file).subarray(0, 8);
+    expect(header.toString("latin1", 0, 4)).toBe("glTF");
+    expect(header.readUInt32LE(4)).toBe(2);
+  });
+
+  it("is attributed in public/models/README.md", () => {
+    const readme = readFileSync(path.join(projectRoot, "public/models/README.md"), "utf8");
+    expect(readme).toContain("Cesium_Air.glb");
+    expect(readme).toContain("Apache License 2.0");
   });
 });
