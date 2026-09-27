@@ -7,7 +7,9 @@ Geospatial visualization app built with [CesiumJS](https://cesium.com/platform/c
 
 **Live demo:** https://sathishkottravel.github.io/cesium3d-geovis/
 
-![Cesium3D GeoVis web app after looking up MGGT with the standalone WASM transport; the camera is over Guatemala City with a marker on the airport](docs/screenshot.png)
+![Cesium3D GeoVis web app animating a flight from Cancún (MMUN) to Guatemala City (MGGT) with the mock data: the 3D aircraft climbing through 8,280 ft over the Riviera Maya coast, with its orange trail, the white route line and the flight controls in the side panel](docs/flight_riviera_maya.png)
+
+*Flight animation with the mock data: MMUN → MGGT, 4 min 12 s after takeoff (31 nm out, climbing through 8,280 ft), a few km inland of Playa del Carmen, Mexico (about 20.58°N, 87.14°W), looking south-west along the Riviera Maya coast.*
 
 Navigation data comes through one of four **transports**, chosen at build time:
 
@@ -62,7 +64,12 @@ The **Flight** section of the Session panel plans a direct flight between two ai
 
 - **Route:** the great circle between the two airports, flown at a constant 450 kt. The aircraft climbs and descends at about 300 ft per nm (roughly 3°) from and to field elevation, and cruises at 35,000 ft. Short hops level off below cruise.
 - **Real time:** at `1×` the animation takes as long as the flight. `10×`, `60×` and `600×` speed it up; you can change speed while the flight is running.
+- **Aircraft:** a 3D model that points its nose along its direction of travel. It's Cesium's sample `Cesium_Air.glb`, used under Apache-2.0; see `public/models/README.md`.
 - **Controls:** Pause/Resume, Restart, and **Follow aircraft** (the camera tracks it). The panel shows elapsed and total time, altitude, and when the aircraft has arrived.
+
+![Follow aircraft view of the MMUN to MGGT flight with the mock data, paused at cruise over southern Petén, Guatemala: the 3D aircraft close up with its orange trail and the white route line](docs/flight_screenshot.png)
+
+*Follow aircraft at cruise: MMUN → MGGT, 44 min 45 s in (336 nm out, 35,000 ft), over southern Petén, Guatemala (about 16.13°N, 89.68°W).*
 
 The planning math is in `src/flight/flightPlan.ts` (plain TS, unit tested). The map layer is `src/components/CesiumMap/FlightLayer.tsx`: a Resium `<Clock>` whose multiplier is the playback speed, driving a `SampledPositionProperty`. Its entity graphics are created once per plan. Recreating them on each render makes Cesium rebuild the geometry, and the Viewer pauses the clock while it does, which slows the animation down.
 
