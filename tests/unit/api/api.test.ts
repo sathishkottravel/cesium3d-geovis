@@ -29,6 +29,26 @@ describe("ApiClient", () => {
     expect(fetchMock.mock.calls[0][1]).toEqual({ headers: { Accept: "application/json" } });
   });
 
+  it("sends a bearer token when configured", async () => {
+    const fetchMock = stubFetch();
+    await new ApiClient("https://x.test", { token: "s3cret" }).get("health");
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      headers: { Accept: "application/json", Authorization: "Bearer s3cret" },
+    });
+  });
+
+  it("does not send Authorization for an empty token", async () => {
+    const fetchMock = stubFetch();
+    await new ApiClient("https://x.test", { token: "" }).get("health");
+    expect(fetchMock.mock.calls[0][1]).toEqual({ headers: { Accept: "application/json" } });
+  });
+
+  it("does not put the token in error messages", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const err = await new ApiClient("https://x.test", { token: "s3cret" }).get("health").catch((e: Error) => e);
+    expect((err as Error).message).not.toContain("s3cret");
+  });
+
   it("encodes params and skips undefined ones", async () => {
     const fetchMock = stubFetch();
     await new ApiClient("https://x.test").get("waypoints", { q: "a b", lat: 1.5, lon: undefined });
@@ -106,6 +126,16 @@ describe("getNavdataPackageUrl (standalone_remote backend)", () => {
 describe("ApiTransport", () => {
   it("has kind api", () => {
     expect(new ApiTransport("https://x.test").kind).toBe("api");
+  });
+
+  it("passes the token to every request", async () => {
+    const fetchMock = stubFetch((url) => jsonResponse(url.pathname === "/waypoints" ? [] : {}));
+    const transport = new ApiTransport("https://x.test", { token: "tok" });
+    await transport.connect();
+    await transport.searchWaypoints("ABC");
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init?.headers).toMatchObject({ Authorization: "Bearer tok" });
+    }
   });
 
   it("checks backend health on connect", async () => {

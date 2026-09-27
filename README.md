@@ -67,6 +67,16 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 | `VITE_CESIUM_ION_TOKEN` | Cesium ion token | none | optional; enables ion terrain/imagery |
 | `VITE_BASE` | public path, e.g. `/cesium3d-geovis/` | `/` | web build only |
 
+`VITE_TRANSPORT` and `VITE_API_BASE_URL` only set the starting values. You can switch the data source at runtime in the **Data source** panel:
+
+| Mode | Transport | Fields |
+| --- | --- | --- |
+| Mock (default) | `standalone` | none; switches immediately |
+| Remote | `standalone_remote` | signed package URL (hidden, shown with query values masked). If left empty, the API URL and token below are used to request one from the backend |
+| API | `api` | API URL and an optional token, sent as `Authorization: Bearer <token>` |
+
+Remote and API connect when you press **Connect**. The settings, including the signed URL and token, are kept in `sessionStorage`, so they survive a reload but are cleared when the tab or window closes. `msfs` can't be picked in the panel yet because the MSFS module can't run outside the simulator.
+
 ### Runtime × transport matrix
 
 | Runtime | Transport | Develop | Build |

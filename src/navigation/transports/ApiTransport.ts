@@ -1,4 +1,4 @@
-import { ApiClient } from "../../api/client";
+import { ApiClient, type ApiClientOptions } from "../../api/client";
 import { createNavigationApi, type NavigationApi } from "../../api/navigationApi";
 import type { Airport, Coordinates, NavigationTransport, Waypoint } from "../types";
 
@@ -7,8 +7,8 @@ export class ApiTransport implements NavigationTransport {
   readonly kind = "api" as const;
   private readonly api: NavigationApi;
 
-  constructor(baseUrl: string) {
-    this.api = createNavigationApi(new ApiClient(baseUrl));
+  constructor(baseUrl: string, options: ApiClientOptions = {}) {
+    this.api = createNavigationApi(new ApiClient(baseUrl, options));
   }
 
   async connect(): Promise<void> {

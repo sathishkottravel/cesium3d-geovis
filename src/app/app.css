@@ -55,3 +55,38 @@ body,
   color: #ff9b9b;
   word-break: break-word;
 }
+
+.panel form.settings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.panel form.settings label {
+  margin-top: 4px;
+  color: #bbb;
+}
+
+.panel form.settings button[type="submit"] {
+  margin-top: 6px;
+  justify-self: start;
+}
+
+.panel .secret-input {
+  display: flex;
+  gap: 4px;
+}
+
+.panel p {
+  margin: 4px 0;
+}
+
+.panel .hint {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.panel .masked {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}

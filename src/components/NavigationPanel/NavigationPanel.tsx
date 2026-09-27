@@ -1,27 +1,21 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Airport } from "../../navigation/types";
-import { getNavigationService } from "../../services/NavigationService";
+import { useNavigation } from "../../services/useNavigation";
 
 interface NavigationPanelProps {
   onAirport(airport: Airport | null): void;
 }
 
 export function NavigationPanel({ onAirport }: NavigationPanelProps) {
-  const nav = getNavigationService();
-  const [status, setStatus] = useState(nav.connectionState);
+  const { nav, state, error } = useNavigation();
   const [message, setMessage] = useState<string | null>(null);
   const [ident, setIdent] = useState("");
 
+  // A new data source may not know the previous result.
   useEffect(() => {
-    setStatus("connecting");
-    nav
-      .connect()
-      .then(() => setStatus(nav.connectionState))
-      .catch((err: Error) => {
-        setStatus(nav.connectionState);
-        setMessage(err.message);
-      });
-  }, [nav]);
+    setMessage(null);
+    onAirport(null);
+  }, [nav, onAirport]);
 
   async function lookup(event: FormEvent) {
     event.preventDefault();
@@ -39,7 +33,7 @@ export function NavigationPanel({ onAirport }: NavigationPanelProps) {
     <section className="panel">
       <h2>Navigation data</h2>
       <p>
-        {nav.transportKind}: <strong>{status}</strong>
+        {nav.transportKind}: <strong>{state}</strong>
       </p>
       <form onSubmit={lookup}>
         <input
@@ -48,11 +42,11 @@ export function NavigationPanel({ onAirport }: NavigationPanelProps) {
           placeholder="ICAO, e.g. MGGT"
           aria-label="Airport ICAO code"
         />
-        <button type="submit" disabled={status !== "connected" || !ident.trim()}>
+        <button type="submit" disabled={state !== "connected" || !ident.trim()}>
           Find
         </button>
       </form>
-      {message && <p className="error">{message}</p>}
+      {(message ?? error) && <p className="error">{message ?? error}</p>}
     </section>
   );
 }

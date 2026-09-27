@@ -1,9 +1,11 @@
+import { MODE_LABELS } from "../../config/transportSettings";
 import { getRuntime } from "../../runtime/runtime";
-import { appConfig } from "../../config/appConfig";
+import { useNavigation } from "../../services/useNavigation";
 
 /** Shows the active runtime/transport configuration. Flight data comes later. */
 export function FlightPanel() {
   const runtime = getRuntime();
+  const { settings, nav } = useNavigation();
   return (
     <section className="panel">
       <h2>Session</h2>
@@ -11,7 +13,9 @@ export function FlightPanel() {
         <dt>Runtime</dt>
         <dd>{runtime.describe()}</dd>
         <dt>Transport</dt>
-        <dd>{appConfig.transport}</dd>
+        <dd>
+          {MODE_LABELS[settings.mode]} ({nav.transportKind})
+        </dd>
       </dl>
     </section>
   );
