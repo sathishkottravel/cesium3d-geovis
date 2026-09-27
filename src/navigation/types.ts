@@ -1,4 +1,4 @@
-export type TransportKind = "standalone" | "msfs" | "api";
+export type TransportKind = "standalone" | "standalone_remote" | "msfs" | "api";
 
 export interface Coordinates {
   latitude: number;

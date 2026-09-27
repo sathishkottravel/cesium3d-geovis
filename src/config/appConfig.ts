@@ -1,6 +1,6 @@
 import type { TransportKind } from "../navigation/types";
 
-const TRANSPORTS: readonly TransportKind[] = ["standalone", "msfs", "api"];
+const TRANSPORTS: readonly TransportKind[] = ["standalone", "standalone_remote", "msfs", "api"];
 
 function resolveTransport(value: string | undefined): TransportKind {
   if (value && (TRANSPORTS as readonly string[]).includes(value)) {
@@ -24,7 +24,8 @@ export const appConfig: AppConfig = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787/api/v1",
   cesiumIonToken: import.meta.env.VITE_CESIUM_ION_TOKEN || undefined,
   wasm: {
-    standalone: `${base}wasm/standalone/msfs_navigation_data_interface.wasm`,
+    standalone: `${base}wasm/standalone/mock/standalone_navigation_data_interface.wasm`,
+    standalone_remote: `${base}wasm/standalone/remote/standalone_navigation_data_interface.wasm`,
     msfs: `${base}wasm/msfs-2020/msfs_navigation_data_interface.wasm`,
   },
 };

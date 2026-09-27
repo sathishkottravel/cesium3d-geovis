@@ -9,11 +9,12 @@ Geospatial visualization app built with [CesiumJS](https://cesium.com/platform/c
 
 ![Cesium3D GeoVis web app after looking up MGGT with the standalone WASM transport; the camera is over Guatemala City with a marker on the airport](docs/screenshot.png)
 
-Navigation data comes through one of three **transports**, chosen at build time:
+Navigation data comes through one of four **transports**, chosen at build time:
 
 | Transport | Backed by | Needs |
 | --- | --- | --- |
-| `standalone` (default) | `public/wasm/standalone/msfs_navigation_data_interface.wasm` (Navigraph) | nothing extra; runs in the browser via a WASI shim |
+| `standalone` (default) | `public/wasm/standalone/mock/standalone_navigation_data_interface.wasm` (Navigraph, mock database) | nothing extra; runs in the browser via a WASI shim |
+| `standalone_remote` | `public/wasm/standalone/remote/standalone_navigation_data_interface.wasm` (Navigraph, remote build) | a backend at `VITE_API_BASE_URL` that issues signed navigation data package URLs |
 | `msfs` | `public/wasm/msfs-2020/msfs_navigation_data_interface.wasm` (Navigraph MSFS gauge) | MSFS SDK host functions (not implemented yet) |
 | `api` | remote HTTP backend | `VITE_API_BASE_URL` |
 
@@ -61,8 +62,8 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 
 | Variable | Values | Default | Used by |
 | --- | --- | --- | --- |
-| `VITE_TRANSPORT` | `standalone` \| `msfs` \| `api` | `standalone` | both runtimes |
-| `VITE_API_BASE_URL` | URL | `http://localhost:8787/api/v1` | `api` transport |
+| `VITE_TRANSPORT` | `standalone` \| `standalone_remote` \| `msfs` \| `api` | `standalone` | both runtimes |
+| `VITE_API_BASE_URL` | URL | `http://localhost:8787/api/v1` | `api` and `standalone_remote` transports |
 | `VITE_CESIUM_ION_TOKEN` | Cesium ion token | none | optional; enables ion terrain/imagery |
 | `VITE_BASE` | public path, e.g. `/cesium3d-geovis/` | `/` | web build only |
 
@@ -117,15 +118,24 @@ Electron files:
 
 ### Standalone (WASM)
 
-`public/wasm/standalone/msfs_navigation_data_interface.wasm` is the standalone build of the [Navigraph navigation data interface](https://github.com/Navigraph/msfs-navigation-data-interface). `src/navigation/navigraph/NavigraphWasmHost.ts` hosts it:
+`public/wasm/standalone/{mock,remote}/standalone_navigation_data_interface.wasm` are the standalone builds of the [Navigraph navigation data interface](https://github.com/Navigraph/msfs-navigation-data-interface). `src/navigation/navigraph/NavigraphWasmHost.ts` hosts it:
 
 - **WASI:** provided by [`@bjorn3/browser_wasi_shim`](https://github.com/bjorn3/browser_wasi_shim). The module only needs a clock, randomness and stdout; it doesn't access any files.
 - **Requests:** the JSON `{ id, function, data }` is written into module memory with `navigraph_alloc`, then passed to `navigraph_call_function(ptr, len)`.
 - **Responses:** the module calls the `navigraph.send_message(namePtr, nameLen, dataPtr, dataLen)` import. `NAVIGRAPH_FunctionResult` messages carry `{ id, status, data }`, and `NAVIGRAPH_Event` messages carry things like `Heartbeat`.
 - **Async work:** `navigraph_update()` is pumped every 50 ms.
+- **Fetches (remote build only):** the module calls the `navigraph.fetch(requestId, urlPtr, urlLen)` import. The host runs `fetch()` and passes the body (`ok = 1`) or an error message (`ok = 0`) back through `navigraph_fetch_complete(requestId, ok, ptr, len)`.
 - **Functions:** the same set as the MSFS interface: `GetAirport`, `GetWaypoints`, `GetAirportsInRange`, `ExecuteSQLQuery`, `GetDatabaseInfo`, and more.
 
-The bundled binary embeds a mock database (AIRAC 2401) with 16 airports in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP`.
+The `mock` build embeds a mock database (AIRAC 2401) with 16 airports in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP`.
+
+The `remote` build (the `remote-data` feature of the [`feat/standalone-mode` fork](https://github.com/sathishkottravel/msfs-navigation-data-interface/tree/feat/standalone-mode)) ships without data. On connect, `StandaloneTransport` asks the backend for a signed Navigraph package URL, then calls `DownloadNavigationData` with it; the module downloads the zip through the host and installs it in memory. The backend must implement:
+
+| Endpoint | Response |
+| --- | --- |
+| `GET /navdata/package-url` | `{ "url": "<signed navigation data package URL>" }` |
+
+Signed URLs expire and need Navigraph credentials, so the backend keeps the credentials and returns a fresh URL per request. In the web build the package host must also allow the app's origin (CORS), since the browser downloads the zip directly.
 
 `src/navigation/WasmLoader.ts` compiles modules with streaming when the server sends `application/wasm`. Otherwise it falls back to `ArrayBuffer` compilation, which is what Electron's `file://` needs.
 
