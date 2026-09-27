@@ -3,6 +3,7 @@ import { ApiClient, ApiError } from "../../../src/api/client";
 import { getNavdataPackageUrl } from "../../../src/api/navdataApi";
 import { createNavigationApi } from "../../../src/api/navigationApi";
 import { ApiTransport } from "../../../src/navigation/transports/ApiTransport";
+import { COSTA_APP, COSTA_NAVIGRAPH, MGGT_APP, MGGT_NAVIGRAPH } from "../../fixtures/navigraph";
 import { jsonResponse } from "../../helpers";
 
 function stubFetch(respond: (url: URL) => Response = () => jsonResponse({})) {
@@ -69,35 +70,59 @@ describe("ApiClient", () => {
   });
 });
 
-describe("navigation API", () => {
-  const api = () => createNavigationApi(new ApiClient("https://x.test"));
+describe("navigation API (standalone-demo backend, Navigraph-shaped responses)", () => {
+  const api = () => createNavigationApi(new ApiClient("http://localhost:3000/api/mock"));
 
-  it("fetches airports by encoded ident", async () => {
-    const fetchMock = stubFetch(() => jsonResponse({ ident: "MGGT" }));
-    await expect(api().getAirport("MG/GT")).resolves.toEqual({ ident: "MGGT" });
-    expect(requestedUrl(fetchMock)).toBe("https://x.test/airports/MG%2FGT");
+  it("maps a Navigraph airport to the app model", async () => {
+    const fetchMock = stubFetch(() => jsonResponse(MGGT_NAVIGRAPH));
+    await expect(api().getAirport("MGGT")).resolves.toEqual(MGGT_APP);
+    expect(requestedUrl(fetchMock)).toBe("http://localhost:3000/api/mock/airports/MGGT");
   });
 
-  it("returns null for a 404 airport", async () => {
-    stubFetch(() => new Response(null, { status: 404 }));
+  it("encodes the airport ident", async () => {
+    const fetchMock = stubFetch(() => jsonResponse(MGGT_NAVIGRAPH));
+    await api().getAirport("MG/GT");
+    expect(requestedUrl(fetchMock)).toBe("http://localhost:3000/api/mock/airports/MG%2FGT");
+  });
+
+  it.each([
+    [404, "unknown airport"],
+    [400, "malformed ident"],
+  ])("returns null for %i (%s)", async (status) => {
+    stubFetch(() => new Response(null, { status }));
     await expect(api().getAirport("ZZZZ")).resolves.toBeNull();
   });
 
-  it("rethrows other airport errors", async () => {
-    stubFetch(() => new Response(null, { status: 500 }));
+  it.each([500, 503])("rethrows %i airport errors", async (status) => {
+    stubFetch(() => new Response(null, { status }));
     await expect(api().getAirport("MGGT")).rejects.toBeInstanceOf(ApiError);
   });
 
-  it("passes the reference position to waypoint search", async () => {
-    const fetchMock = stubFetch(() => jsonResponse([]));
-    await api().searchWaypoints("ABC", { latitude: 14.5, longitude: -90.5 });
-    expect(requestedUrl(fetchMock)).toBe("https://x.test/waypoints?q=ABC&lat=14.5&lon=-90.5");
+  it("rejects an app-shaped (non-Navigraph) airport instead of returning NaN coordinates", async () => {
+    stubFetch(() => jsonResponse({ ident: "MGGT", name: "X", location: { latitude: 14.5, longitude: -90.5 } }));
+    await expect(api().getAirport("MGGT")).rejects.toThrow("Unexpected navigation data: missing location");
   });
 
-  it("omits the position when none is given", async () => {
+  it("looks up waypoints by upper-cased, encoded ident and maps them", async () => {
+    const fetchMock = stubFetch(() => jsonResponse([COSTA_NAVIGRAPH]));
+    await expect(api().searchWaypoints("costa")).resolves.toEqual([COSTA_APP]);
+    expect(requestedUrl(fetchMock)).toBe("http://localhost:3000/api/mock/waypoints/COSTA");
+  });
+
+  it("does not send the reference position (the backend has no position filter)", async () => {
     const fetchMock = stubFetch(() => jsonResponse([]));
-    await api().searchWaypoints("ABC");
-    expect(requestedUrl(fetchMock)).toBe("https://x.test/waypoints?q=ABC");
+    await api().searchWaypoints("a b", { latitude: 14.5, longitude: -90.5 });
+    expect(requestedUrl(fetchMock)).toBe("http://localhost:3000/api/mock/waypoints/A%20B");
+  });
+
+  it.each([404, 400])("returns no waypoints for %i", async (status) => {
+    stubFetch(() => new Response(null, { status }));
+    await expect(api().searchWaypoints("ZZZZZ")).resolves.toEqual([]);
+  });
+
+  it("rethrows other waypoint errors", async () => {
+    stubFetch(() => new Response(null, { status: 500 }));
+    await expect(api().searchWaypoints("COSTA")).rejects.toBeInstanceOf(ApiError);
   });
 });
 
@@ -129,7 +154,7 @@ describe("ApiTransport", () => {
   });
 
   it("passes the token to every request", async () => {
-    const fetchMock = stubFetch((url) => jsonResponse(url.pathname === "/waypoints" ? [] : {}));
+    const fetchMock = stubFetch((url) => jsonResponse(url.pathname.startsWith("/waypoints/") ? [] : {}));
     const transport = new ApiTransport("https://x.test", { token: "tok" });
     await transport.connect();
     await transport.searchWaypoints("ABC");
@@ -149,11 +174,10 @@ describe("ApiTransport", () => {
     await expect(new ApiTransport("https://x.test").connect()).rejects.toBeInstanceOf(ApiError);
   });
 
-  it("delegates queries to the backend", async () => {
-    const airport = { ident: "MGGT", name: "La Aurora", location: { latitude: 14.58, longitude: -90.53 } };
-    stubFetch((url) => jsonResponse(url.pathname.startsWith("/airports/") ? airport : []));
-    const transport = new ApiTransport("https://x.test");
-    await expect(transport.getAirport("MGGT")).resolves.toEqual(airport);
-    await expect(transport.searchWaypoints("ABC")).resolves.toEqual([]);
+  it("returns app-model airports and waypoints from the backend", async () => {
+    stubFetch((url) => jsonResponse(url.pathname.includes("/airports/") ? MGGT_NAVIGRAPH : [COSTA_NAVIGRAPH]));
+    const transport = new ApiTransport("http://localhost:3000/api/mock");
+    await expect(transport.getAirport("MGGT")).resolves.toEqual(MGGT_APP);
+    await expect(transport.searchWaypoints("COSTA")).resolves.toEqual([COSTA_APP]);
   });
 });

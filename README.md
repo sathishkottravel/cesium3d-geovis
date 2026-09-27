@@ -63,7 +63,7 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 | Variable | Values | Default | Used by |
 | --- | --- | --- | --- |
 | `VITE_TRANSPORT` | `standalone` \| `standalone_remote` \| `msfs` \| `api` | `standalone` | both runtimes |
-| `VITE_API_BASE_URL` | URL | `http://localhost:8787/api/v1` | `api` and `standalone_remote` transports |
+| `VITE_API_BASE_URL` | URL | `http://localhost:3000/api/mock` | `api` and `standalone_remote` transports |
 | `VITE_CESIUM_ION_TOKEN` | Cesium ion token | none | optional; enables ion terrain/imagery |
 | `VITE_BASE` | public path, e.g. `/cesium3d-geovis/` | `/` | web build only |
 
@@ -72,7 +72,7 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 | Mode | Transport | Fields |
 | --- | --- | --- |
 | Mock (default) | `standalone` | none; switches immediately |
-| Remote | `standalone_remote` | signed package URL (hidden, shown with query values masked). If left empty, the API URL and token below are used to request one from the backend |
+| Remote | `standalone_remote` | signed package URL, required (hidden, shown with query values masked) |
 | API | `api` | API URL and an optional token, sent as `Authorization: Bearer <token>` |
 
 Remote and API connect when you press **Connect**. The settings, including the signed URL and token, are kept in `sessionStorage`, so they survive a reload but are cleared when the tab or window closes. `msfs` can't be picked in the panel yet because the MSFS module can't run outside the simulator.
@@ -118,6 +118,8 @@ Makers are configured in `forge.config.ts`:
 
 A maker only builds for the host OS, so each platform's artifacts come from the CI matrix.
 
+`electron:start` runs its own Vite dev server on port 5173, or the next free port when 5173 is taken (for example by `bun run dev`). That matters for the API data source's CORS settings: see [CORS for local development](#cors-for-local-development).
+
 Electron files:
 
 - `electron/main.ts`: creates the window and loads the Vite dev server URL in development or the bundled `index.html` when packaged
@@ -155,15 +157,41 @@ Signed URLs expire and need Navigraph credentials, so the backend keeps the cred
 
 ### API
 
-Set `VITE_TRANSPORT=api` and `VITE_API_BASE_URL`. The client in `src/api/navigationApi.ts` expects:
+The `api` transport talks to the [standalone demo HTTP API](https://github.com/sathishkottravel/msfs-navigation-data-interface/tree/feat/standalone-mode/example/standalone-demo) of the Navigraph navigation data interface. Point `VITE_API_BASE_URL` (or the API URL field) at a data source: `http://localhost:3000/api/mock` for the mock data build, or `/api/remote` for the remote data build. To run it locally:
+
+```sh
+cd msfs-navigation-data-interface/example/standalone-demo
+bun run serve   # http://localhost:3000, Swagger UI at /docs
+```
+
+`src/api/navigationApi.ts` uses these endpoints:
 
 | Method | Path | Response |
 | --- | --- | --- |
-| GET | `/health` | any 2xx |
-| GET | `/airports/:ident` | `Airport` JSON, or 404 |
-| GET | `/waypoints?q=&lat=&lon=` | `Waypoint[]` JSON |
+| GET | `/health` | `200` when data can be served, `503` otherwise |
+| GET | `/airports/:ident` | Navigraph airport; `404` (unknown) or `400` (malformed ident) means no result |
+| GET | `/waypoints/:ident` | Navigraph waypoints; `404` means no match |
 
-Types are in `src/navigation/types.ts`. For the web runtime, the backend must allow CORS from the Pages origin.
+The responses are raw Navigraph records (`location: { lat, long }`, `elevation`, …). They are mapped to the app model in `src/navigation/navigraph/mappers.ts`, the same mapping the standalone transport uses.
+
+#### CORS for local development
+
+The app and the backend run on different origins, so the backend must allow the app's origin. By default the demo allows only `http://localhost:5173`. Allow more by setting its `CORS_ORIGINS`, a comma-separated list matched exactly:
+
+| App runs as | Origin to allow |
+| --- | --- |
+| `bun run dev` | `http://localhost:5173` |
+| `bun run electron:start` | `http://localhost:5173`, or the next free port (5174, …) when 5173 is taken, e.g. by `bun run dev`; Forge prints the actual URL |
+| Packaged Electron app | `null`, since pages loaded from `file://` send `Origin: null`. Use this only on a development machine: it also admits any local file and sandboxed iframes |
+| GitHub Pages | `https://<user>.github.io` |
+
+```sh
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174 bun run serve
+# also the packaged Electron app (local development only):
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174,null bun run serve
+```
+
+A blocked origin shows as `Failed to fetch` in the Navigation data panel, and the devtools console names the origin.
 
 ## CI/CD
 
