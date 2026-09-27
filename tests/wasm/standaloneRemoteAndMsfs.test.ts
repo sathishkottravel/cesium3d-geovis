@@ -39,7 +39,8 @@ describe("msfs transport against the MSFS 2020 gauge build", () => {
 
     // No `env` import object is passed, so V8 rejects with a TypeError before linking individual
     // functions. Once MSFS SDK shims exist this becomes a LinkError, then a successful connect.
-    await expect(nav.connect()).rejects.toThrow(/module="env"/);
+    // V8 wording varies by Node version: `module="env": ...` vs `"env": ...`.
+    await expect(nav.connect()).rejects.toThrow(/"env".*not an object/);
     expect(nav.connectionState).toBe("error");
     expect(nav.error).toBeInstanceOf(Error);
   });
