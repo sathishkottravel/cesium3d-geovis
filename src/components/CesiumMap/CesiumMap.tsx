@@ -2,6 +2,7 @@ import { Cartesian3, Color, Ion } from "cesium";
 import { CameraFlyTo, Entity, Viewer } from "resium";
 import { appConfig } from "../../config/appConfig";
 import type { Airport } from "../../navigation/types";
+import { FlightLayer, type FlightLayerProps } from "./FlightLayer";
 
 if (appConfig.cesiumIonToken) {
   Ion.defaultAccessToken = appConfig.cesiumIonToken;
@@ -9,9 +10,10 @@ if (appConfig.cesiumIonToken) {
 
 interface CesiumMapProps {
   airport?: Airport | null;
+  flight?: FlightLayerProps | null;
 }
 
-export function CesiumMap({ airport }: CesiumMapProps) {
+export function CesiumMap({ airport, flight }: CesiumMapProps) {
   return (
     <Viewer full timeline={false} animation={false}>
       {airport && (
@@ -34,6 +36,7 @@ export function CesiumMap({ airport }: CesiumMapProps) {
           description={airport.name}
         />
       )}
+      {flight && <FlightLayer {...flight} />}
     </Viewer>
   );
 }
