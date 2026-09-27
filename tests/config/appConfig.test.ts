@@ -33,7 +33,7 @@ describe("transport selection (VITE_TRANSPORT)", () => {
 
 describe("API base URL (VITE_API_BASE_URL)", () => {
   it("defaults to the local backend", async () => {
-    expect((await loadConfig({})).apiBaseUrl).toBe("http://localhost:8787/api/v1");
+    expect((await loadConfig({})).apiBaseUrl).toBe("http://localhost:3000/api/mock");
   });
 
   it("uses the configured backend", async () => {

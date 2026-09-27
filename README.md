@@ -63,7 +63,7 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 | Variable | Values | Default | Used by |
 | --- | --- | --- | --- |
 | `VITE_TRANSPORT` | `standalone` \| `standalone_remote` \| `msfs` \| `api` | `standalone` | both runtimes |
-| `VITE_API_BASE_URL` | URL | `http://localhost:8787/api/v1` | `api` and `standalone_remote` transports |
+| `VITE_API_BASE_URL` | URL | `http://localhost:3000/api/mock` | `api` and `standalone_remote` transports |
 | `VITE_CESIUM_ION_TOKEN` | Cesium ion token | none | optional; enables ion terrain/imagery |
 | `VITE_BASE` | public path, e.g. `/cesium3d-geovis/` | `/` | web build only |
 
@@ -155,15 +155,22 @@ Signed URLs expire and need Navigraph credentials, so the backend keeps the cred
 
 ### API
 
-Set `VITE_TRANSPORT=api` and `VITE_API_BASE_URL`. The client in `src/api/navigationApi.ts` expects:
+The `api` transport talks to the [standalone demo HTTP API](https://github.com/sathishkottravel/msfs-navigation-data-interface/tree/feat/standalone-mode/example/standalone-demo) of the Navigraph navigation data interface. Point `VITE_API_BASE_URL` (or the API URL field) at a data source: `http://localhost:3000/api/mock` for the mock data build, or `/api/remote` for the remote data build. To run it locally:
+
+```sh
+cd msfs-navigation-data-interface/example/standalone-demo
+bun run serve   # http://localhost:3000, Swagger UI at /docs
+```
+
+`src/api/navigationApi.ts` uses these endpoints:
 
 | Method | Path | Response |
 | --- | --- | --- |
-| GET | `/health` | any 2xx |
-| GET | `/airports/:ident` | `Airport` JSON, or 404 |
-| GET | `/waypoints?q=&lat=&lon=` | `Waypoint[]` JSON |
+| GET | `/health` | `200` when data can be served, `503` otherwise |
+| GET | `/airports/:ident` | Navigraph airport; `404` (unknown) or `400` (malformed ident) means no result |
+| GET | `/waypoints/:ident` | Navigraph waypoints; `404` means no match |
 
-Types are in `src/navigation/types.ts`. For the web runtime, the backend must allow CORS from the Pages origin.
+The responses are raw Navigraph records (`location: { lat, long }`, `elevation`, …). They are mapped to the app model in `src/navigation/navigraph/mappers.ts`, the same mapping the standalone transport uses. The demo allows CORS from `http://localhost:5173` by default. For other origins, like the GitHub Pages site, set its `CORS_ORIGINS`.
 
 ## CI/CD
 

@@ -14,7 +14,7 @@ import type { TransportKind } from "../../../src/navigation/types";
 const defaults: TransportSettings = {
   mode: "mock",
   remote: { packageUrl: "" },
-  api: { baseUrl: "http://localhost:8787/api/v1", token: "" },
+  api: { baseUrl: "http://localhost:3000/api/mock", token: "" },
 };
 
 function storageWith(raw: string | null): SettingsStorage {

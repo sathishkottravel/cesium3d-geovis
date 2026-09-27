@@ -21,7 +21,7 @@ const base = import.meta.env.BASE_URL;
 
 export const appConfig: AppConfig = {
   transport: resolveTransport(import.meta.env.VITE_TRANSPORT),
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787/api/v1",
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/mock",
   cesiumIonToken: import.meta.env.VITE_CESIUM_ION_TOKEN || undefined,
   wasm: {
     standalone: `${base}wasm/standalone/mock/standalone_navigation_data_interface.wasm`,

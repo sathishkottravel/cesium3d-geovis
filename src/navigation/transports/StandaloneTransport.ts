@@ -1,16 +1,7 @@
+import { toAirport, toWaypoint } from "../navigraph/mappers";
 import { NavigraphWasmHost } from "../navigraph/NavigraphWasmHost";
-import type {
-  NavigraphAirport,
-  NavigraphCoordinates,
-  NavigraphDatabaseInfo,
-  NavigraphWaypoint,
-} from "../navigraph/types";
-import type { Airport, Coordinates, NavigationTransport, Waypoint } from "../types";
-
-const toCoordinates = ({ lat, long }: NavigraphCoordinates): Coordinates => ({
-  latitude: lat,
-  longitude: long,
-});
+import type { NavigraphAirport, NavigraphDatabaseInfo, NavigraphWaypoint } from "../navigraph/types";
+import type { Airport, NavigationTransport, Waypoint } from "../types";
 
 export interface StandaloneTransportOptions {
   kind?: "standalone" | "standalone_remote";
@@ -58,23 +49,14 @@ export class StandaloneTransport implements NavigationTransport {
       // The module reports a generic error when the ident is not in the database.
       return null;
     }
-    return {
-      ident: airport.ident,
-      name: airport.name,
-      location: toCoordinates(airport.location),
-      elevationFt: airport.elevation,
-    };
+    return toAirport(airport);
   }
 
   async searchWaypoints(query: string): Promise<Waypoint[]> {
     const waypoints = await this.requireHost().call<NavigraphWaypoint[]>("GetWaypoints", {
       ident: query.toUpperCase(),
     });
-    return waypoints.map((wp) => ({
-      ident: wp.ident,
-      region: wp.icao_code,
-      location: toCoordinates(wp.location),
-    }));
+    return waypoints.map(toWaypoint);
   }
 
   private requireHost(): NavigraphWasmHost {
