@@ -51,7 +51,14 @@ export function FlightLayer({ plan, playing, speed, follow, onElapsed }: FlightL
       Math.max(...lons) + pad,
       Math.max(...lats) + pad,
     );
-    return { start, stop, position, route, overview };
+    // Graphics are created once per plan: new objects on re-render would make Cesium rebuild the
+    // geometry, and the Viewer pauses the clock until it is ready (the animation would run slow).
+    const graphics = {
+      route: { positions: route, width: 2, material: Color.WHITE.withAlpha(0.6) },
+      aircraft: { pixelSize: 10, color: Color.YELLOW, outlineColor: Color.BLACK, outlineWidth: 2 },
+      trail: { leadTime: 0, trailTime: plan.durationSec, width: 3, material: Color.ORANGE },
+    };
+    return { start, stop, position, overview, graphics };
   }, [plan]);
 
   // Keep the latest callback without re-binding the Clock's onTick.
@@ -80,15 +87,12 @@ export function FlightLayer({ plan, playing, speed, follow, onElapsed }: FlightL
         onTick={tick}
       />
       <CameraFlyTo key={`overview-${flight.start.toString()}`} destination={flight.overview} duration={2} once />
-      <Entity
-        name={`${plan.from.ident} → ${plan.to.ident}`}
-        polyline={{ positions: flight.route, width: 2, material: Color.WHITE.withAlpha(0.6) }}
-      />
+      <Entity name={`${plan.from.ident} → ${plan.to.ident}`} polyline={flight.graphics.route} />
       <Entity
         name="Aircraft"
         position={flight.position}
-        point={{ pixelSize: 10, color: Color.YELLOW, outlineColor: Color.BLACK, outlineWidth: 2 }}
-        path={{ leadTime: 0, trailTime: plan.durationSec, width: 3, material: Color.ORANGE }}
+        point={flight.graphics.aircraft}
+        path={flight.graphics.trail}
         tracked={follow}
       />
     </>
