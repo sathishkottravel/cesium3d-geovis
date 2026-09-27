@@ -8,6 +8,8 @@ interface NavigraphExports {
   navigraph_dealloc(ptr: number, len: number): void;
   navigraph_call_function(ptr: number, len: number): void;
   navigraph_update(): void;
+  /** Only exported by the remote data build. */
+  navigraph_fetch_complete?(requestId: number, ok: number, ptr: number, len: number): void;
 }
 
 interface PendingCall {
@@ -26,6 +28,9 @@ const UPDATE_INTERVAL_MS = 50;
  * - reply: the module calls the `navigraph.send_message(namePtr, nameLen, dataPtr, dataLen)`
  *   import with `NAVIGRAPH_FunctionResult` (`{ id, status, data }`) or `NAVIGRAPH_Event`
  * - `navigraph_update()` must be pumped periodically to drive async work
+ * - fetch (remote data build only): the module calls the `navigraph.fetch(requestId, urlPtr, urlLen)`
+ *   import; the host fetches the URL and passes the body (`ok = 1`) or an error message (`ok = 0`)
+ *   back through `navigraph_fetch_complete(requestId, ok, ptr, len)`
  */
 export class NavigraphWasmHost {
   private readonly pending = new Map<string, PendingCall>();
@@ -54,6 +59,10 @@ export class NavigraphWasmHost {
       navigraph: {
         send_message: (namePtr: number, nameLen: number, dataPtr: number, dataLen: number) =>
           host?.handleMessage(namePtr, nameLen, dataPtr, dataLen, onEvent),
+        fetch: (requestId: number, urlPtr: number, urlLen: number) => {
+          // Copy the URL now: the module only guarantees the pointer for the duration of this call.
+          if (host) void host.hostFetch(requestId, host.readString(urlPtr, urlLen));
+        },
       },
     });
     wasi.initialize(instance as { exports: { memory: WebAssembly.Memory } });
@@ -70,9 +79,8 @@ export class NavigraphWasmHost {
     });
 
     const bytes = this.encoder.encode(JSON.stringify({ id, function: fn, data }));
-    const ptr = this.exports.navigraph_alloc(bytes.length);
-    new Uint8Array(this.exports.memory.buffer, ptr, bytes.length).set(bytes);
-    this.exports.navigraph_call_function(ptr, bytes.length);
+    // The module takes ownership of the buffer.
+    this.exports.navigraph_call_function(this.write(bytes), bytes.length);
     return promise;
   }
 
@@ -83,6 +91,35 @@ export class NavigraphWasmHost {
     this.pending.clear();
   }
 
+  private async hostFetch(requestId: number, url: string): Promise<void> {
+    let ok = 1;
+    let body: Uint8Array;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      body = new Uint8Array(await response.arrayBuffer());
+    } catch (err) {
+      ok = 0;
+      body = this.encoder.encode(err instanceof Error ? err.message : String(err));
+    }
+
+    // The host may have been disposed while the fetch was in flight.
+    if (!this.timer || !this.exports.navigraph_fetch_complete) return;
+    // The module takes ownership of the buffer.
+    this.exports.navigraph_fetch_complete(requestId, ok, this.write(body), body.length);
+  }
+
+  /** Copies bytes into a buffer allocated by the module and returns its pointer. */
+  private write(bytes: Uint8Array): number {
+    const ptr = this.exports.navigraph_alloc(bytes.length);
+    new Uint8Array(this.exports.memory.buffer, ptr, bytes.length).set(bytes);
+    return ptr;
+  }
+
+  private readString(ptr: number, len: number): string {
+    return this.decoder.decode(new Uint8Array(this.exports.memory.buffer, ptr, len));
+  }
+
   private handleMessage(
     namePtr: number,
     nameLen: number,
@@ -90,9 +127,8 @@ export class NavigraphWasmHost {
     dataLen: number,
     onEvent?: (event: NavigraphEvent) => void,
   ): void {
-    const memory = this.exports.memory.buffer;
-    const name = this.decoder.decode(new Uint8Array(memory, namePtr, nameLen));
-    const payload = JSON.parse(this.decoder.decode(new Uint8Array(memory, dataPtr, dataLen)));
+    const name = this.readString(namePtr, nameLen);
+    const payload = JSON.parse(this.readString(dataPtr, dataLen));
 
     if (name === "NAVIGRAPH_FunctionResult") {
       const result = payload as NavigraphFunctionResult;

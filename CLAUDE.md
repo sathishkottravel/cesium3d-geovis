@@ -79,8 +79,13 @@ cesium3d-geovis/
 │
 ├── public/
 │   └── wasm/
-│       ├── navigation-standalone.wasm
-│       └── navigation-msfs.wasm
+│       ├── msfs-2020/
+│       │   └── msfs_navigation_data_interface.wasm
+│       ├── standalone/
+│           ├── mock
+│           │   └── standalone_navigation_data_interface.wasm
+│           └── remote
+│               └── standalone_navigation_data_interface.wasm
 │
 ├── electron/
 │   ├── main.ts
