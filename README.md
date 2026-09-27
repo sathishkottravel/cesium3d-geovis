@@ -72,7 +72,7 @@ Settings are Vite env variables. They are fixed at build time, so rebuild after 
 | Mode | Transport | Fields |
 | --- | --- | --- |
 | Mock (default) | `standalone` | none; switches immediately |
-| Remote | `standalone_remote` | signed package URL (hidden, shown with query values masked). If left empty, the API URL and token below are used to request one from the backend |
+| Remote | `standalone_remote` | signed package URL, required (hidden, shown with query values masked) |
 | API | `api` | API URL and an optional token, sent as `Authorization: Bearer <token>` |
 
 Remote and API connect when you press **Connect**. The settings, including the signed URL and token, are kept in `sessionStorage`, so they survive a reload but are cleared when the tab or window closes. `msfs` can't be picked in the panel yet because the MSFS module can't run outside the simulator.

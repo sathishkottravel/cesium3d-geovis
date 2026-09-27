@@ -69,7 +69,6 @@ export function TransportPanel() {
   const setApi = (patch: Partial<TransportSettings["api"]>) => setDraft({ ...draft, api: { ...draft.api, ...patch } });
   const maskedPackageUrl = maskSignedUrl(draft.remote.packageUrl);
 
-  // Backend URL and token: used by the api mode, and by the remote mode to request signed URLs.
   const apiFields = (
     <>
       <label htmlFor={`${id}-url`}>API URL</label>
@@ -115,13 +114,8 @@ export function TransportPanel() {
               onChange={setRemote}
             />
             {maskedPackageUrl && <p className="hint masked">{maskedPackageUrl}</p>}
-            {errors.packageUrl && <p className="error">{errors.packageUrl}</p>}
-            {!draft.remote.packageUrl.trim() && (
-              <>
-                <p className="hint">Empty: the backend below issues a signed URL on each connect.</p>
-                {apiFields}
-              </>
-            )}
+            {/* An empty field only disables Connect; errors show once something is typed. */}
+            {draft.remote.packageUrl.trim() && errors.packageUrl && <p className="error">{errors.packageUrl}</p>}
           </>
         )}
 

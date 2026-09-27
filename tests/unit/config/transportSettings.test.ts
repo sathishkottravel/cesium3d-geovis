@@ -110,13 +110,12 @@ describe("validateSettings", () => {
 
   it("rejects a remote package URL that is not http(s)", () => {
     const s = withMode({ mode: "remote", remote: { packageUrl: "file:///etc/passwd" } });
-    expect(validateSettings(s)).toHaveProperty("packageUrl");
+    expect(validateSettings(s)).toEqual({ packageUrl: "Enter an http(s) URL" });
   });
 
-  it("requires a valid API URL for remote without a signed URL (backend issues it)", () => {
-    expect(validateSettings(withMode({ mode: "remote" }))).toEqual({});
-    const s = withMode({ mode: "remote", api: { baseUrl: "nope", token: "" } });
-    expect(validateSettings(s)).toHaveProperty("baseUrl");
+  it.each(["", "   "])("requires the signed URL in remote mode (%j), even with a valid API URL", (packageUrl) => {
+    const s = withMode({ mode: "remote", remote: { packageUrl } });
+    expect(validateSettings(s)).toEqual({ packageUrl: "Enter the signed package URL" });
   });
 });
 

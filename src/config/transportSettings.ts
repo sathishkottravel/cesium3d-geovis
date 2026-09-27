@@ -21,7 +21,10 @@ export const MODE_LABELS: Record<TransportMode, string> = {
 export interface TransportSettings {
   mode: TransportMode;
   remote: {
-    /** Signed navigation data package URL. Empty: ask the backend (`api.baseUrl`) for one. */
+    /**
+     * Signed navigation data package URL, required to connect from the UI. Empty only when a build starts in
+     * remote mode (VITE_TRANSPORT=standalone_remote); the transport then asks the backend (`api.baseUrl`) for one.
+     */
     packageUrl: string;
   };
   api: {
@@ -96,10 +99,8 @@ export function validateSettings(settings: TransportSettings): Partial<Record<"p
   const errors: Partial<Record<"packageUrl" | "baseUrl", string>> = {};
   const { packageUrl } = settings.remote;
   const { baseUrl } = settings.api;
-  if (settings.mode === "remote") {
-    if (packageUrl.trim() && !isHttpUrl(packageUrl.trim())) errors.packageUrl = "Enter an http(s) URL";
-    // Without a package URL, the remote mode asks the backend for one.
-    if (!packageUrl.trim() && !isHttpUrl(baseUrl.trim())) errors.baseUrl = "Enter an http(s) URL";
+  if (settings.mode === "remote" && !isHttpUrl(packageUrl.trim())) {
+    errors.packageUrl = packageUrl.trim() ? "Enter an http(s) URL" : "Enter the signed package URL";
   }
   if (settings.mode === "api" && !isHttpUrl(baseUrl.trim())) errors.baseUrl = "Enter an http(s) URL";
   return errors;
