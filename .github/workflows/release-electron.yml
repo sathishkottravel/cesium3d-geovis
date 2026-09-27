@@ -25,6 +25,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
       - run: bun install --frozen-lockfile
+      - name: Run tests
+        run: bun run test
       - name: Make distributables
         run: bun run electron:make
         env:
