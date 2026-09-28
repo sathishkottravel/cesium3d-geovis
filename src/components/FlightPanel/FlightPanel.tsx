@@ -1,12 +1,27 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { MODE_LABELS } from "../../config/transportSettings";
-import { formatDuration, planFlight, sampleAt, SPEEDS } from "../../flight/flightPlan";
-import type { FlightControls } from "../../flight/useFlight";
+import { formatDuration, planFlight, sampleAt, SPEEDS, type FlightPlan } from "../../flight/flightPlan";
+import { ROUTE_CORRIDOR_NM, waypointsAlongRoute } from "../../flight/routeWaypoints";
+import type { FlightControls, RouteWaypoints } from "../../flight/useFlight";
+import { WaypointsUnavailableError } from "../../navigation/types";
 import { getRuntime } from "../../runtime/runtime";
 import { useNavigation } from "../../services/useNavigation";
 
 interface FlightPanelProps {
   flight: FlightControls;
+}
+
+function describeRouteWaypoints(value: RouteWaypoints | null): string {
+  switch (value?.status) {
+    case "ready":
+      return `${value.waypoints.length} within ${ROUTE_CORRIDOR_NM} nm`;
+    case "unavailable":
+      return "not available for this data source";
+    case "error":
+      return `failed: ${value.message}`;
+    default:
+      return "…";
+  }
 }
 
 /** Session info, and planning / playback of a flight between two airports. */
@@ -33,9 +48,24 @@ export function FlightPanel({ flight }: FlightPanelProps) {
         setMessage(`No airport found for ${(departure ? to : from).trim().toUpperCase()}`);
         return;
       }
-      flight.start(planFlight(departure, arrival));
+      const next = planFlight(departure, arrival);
+      const routeId = flight.start(next);
+      void loadRouteWaypoints(routeId, next);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function loadRouteWaypoints(routeId: number, next: FlightPlan) {
+    try {
+      flight.setRouteWaypoints(routeId, { status: "ready", waypoints: await waypointsAlongRoute(nav, next) });
+    } catch (err) {
+      flight.setRouteWaypoints(
+        routeId,
+        err instanceof WaypointsUnavailableError
+          ? { status: "unavailable" }
+          : { status: "error", message: err instanceof Error ? err.message : String(err) },
+      );
     }
   }
 
@@ -102,6 +132,8 @@ export function FlightPanel({ flight }: FlightPanelProps) {
             </dd>
             <dt>Altitude</dt>
             <dd>{Math.round(current.altitudeFt).toLocaleString("en-US")} ft</dd>
+            <dt>Waypoints</dt>
+            <dd>{describeRouteWaypoints(flight.routeWaypoints)}</dd>
             <dt>Status</dt>
             <dd>{arrived ? `Arrived at ${plan.to.ident}` : flight.playing ? "En route" : "Paused"}</dd>
           </dl>

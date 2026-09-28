@@ -9,12 +9,13 @@ import type { LookupResult } from "../navigation/lookup";
 export function MapView() {
   const [found, setFound] = useState<Pick<LookupResult, "airport" | "waypoints">>({ airport: null, waypoints: [] });
   const flight = useFlight();
-  const { plan, playing, speed, follow, setElapsed } = flight;
+  const { plan, playing, speed, follow, setElapsed, routeWaypoints } = flight;
   return (
     <>
       <CesiumMap
         airport={found.airport}
         waypoints={found.waypoints}
+        routeWaypoints={plan && routeWaypoints?.status === "ready" ? routeWaypoints.waypoints : undefined}
         flight={plan && { plan, playing, speed, follow, onElapsed: setElapsed }}
       />
       <aside className="sidebar">

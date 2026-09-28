@@ -1,4 +1,4 @@
-import { Cartesian2, Cartesian3, Color, LabelStyle, Rectangle, VerticalOrigin } from "cesium";
+import { Cartesian2, Cartesian3, Color, DistanceDisplayCondition, LabelStyle, Rectangle, VerticalOrigin } from "cesium";
 import { useMemo } from "react";
 import { CameraFlyTo, Entity } from "resium";
 import type { Waypoint } from "../../navigation/types";
@@ -14,15 +14,19 @@ const LABEL = {
   verticalOrigin: VerticalOrigin.BOTTOM,
   pixelOffset: new Cartesian2(0, -10),
 };
+/** Labels hidden when the camera is over 1,000 km away, where neighbouring labels overlap. */
+const DECLUTTERED_LABEL = { ...LABEL, distanceDisplayCondition: new DistanceDisplayCondition(0, 1_000_000) };
 
 interface WaypointsLayerProps {
   waypoints: Waypoint[];
   /** Move the camera to the waypoints (off when an airport is shown). */
   flyTo: boolean;
+  /** Hide labels when zoomed far out (for dense sets, e.g. along a route). */
+  declutter?: boolean;
 }
 
 /** Marks waypoints on the globe; several may share an ident. */
-export function WaypointsLayer({ waypoints, flyTo }: WaypointsLayerProps) {
+export function WaypointsLayer({ waypoints, flyTo, declutter = false }: WaypointsLayerProps) {
   const items = useMemo(
     () =>
       waypoints.map((w, i) => {
@@ -31,10 +35,10 @@ export function WaypointsLayer({ waypoints, flyTo }: WaypointsLayerProps) {
           key: `${text}-${i}`,
           name: text,
           position: Cartesian3.fromDegrees(w.location.longitude, w.location.latitude),
-          label: { ...LABEL, text },
+          label: { ...(declutter ? DECLUTTERED_LABEL : LABEL), text },
         };
       }),
-    [waypoints],
+    [waypoints, declutter],
   );
 
   const destination = useMemo(() => {
