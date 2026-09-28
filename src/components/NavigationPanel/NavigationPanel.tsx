@@ -1,32 +1,29 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { Airport } from "../../navigation/types";
+import { lookupIdent, type LookupResult } from "../../navigation/lookup";
 import { useNavigation } from "../../services/useNavigation";
 
 interface NavigationPanelProps {
-  onAirport(airport: Airport | null): void;
+  onResult(result: Pick<LookupResult, "airport" | "waypoints">): void;
 }
 
-export function NavigationPanel({ onAirport }: NavigationPanelProps) {
+/** Looks an identifier up as an airport and as waypoints in the active data source. */
+export function NavigationPanel({ onResult }: NavigationPanelProps) {
   const { nav, state, error } = useNavigation();
-  const [message, setMessage] = useState<string | null>(null);
+  const [result, setResult] = useState<LookupResult | null>(null);
   const [ident, setIdent] = useState("");
 
   // A new data source may not know the previous result.
   useEffect(() => {
-    setMessage(null);
-    onAirport(null);
-  }, [nav, onAirport]);
+    setResult(null);
+    onResult({ airport: null, waypoints: [] });
+  }, [nav, onResult]);
 
   async function lookup(event: FormEvent) {
     event.preventDefault();
-    setMessage(null);
-    try {
-      const airport = await nav.getAirport(ident);
-      onAirport(airport);
-      if (!airport) setMessage(`No airport found for ${ident}`);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err));
-    }
+    setResult(null);
+    const next = await lookupIdent(nav, ident);
+    setResult(next);
+    onResult({ airport: next.airport, waypoints: next.waypoints });
   }
 
   return (
@@ -39,14 +36,19 @@ export function NavigationPanel({ onAirport }: NavigationPanelProps) {
         <input
           value={ident}
           onChange={(e) => setIdent(e.target.value)}
-          placeholder="ICAO, e.g. MGGT"
-          aria-label="Airport ICAO code"
+          placeholder="ICAO or waypoint, e.g. MGGT, COSTA"
+          aria-label="Airport or waypoint identifier"
         />
         <button type="submit" disabled={state !== "connected" || !ident.trim()}>
           Find
         </button>
       </form>
-      {(message ?? error) && <p className="error">{message ?? error}</p>}
+      {result?.error ? (
+        <p className="error">{result.error}</p>
+      ) : (
+        result && <p className="hint">{result.message}</p>
+      )}
+      {!result && error && <p className="error">{error}</p>}
     </section>
   );
 }
