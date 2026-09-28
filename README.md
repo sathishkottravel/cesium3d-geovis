@@ -58,6 +58,12 @@ cp .env.example .env.local   # optional, edit as needed
 bun run dev                  # web runtime at http://localhost:5173
 ```
 
+## Navigation data lookup
+
+The **Navigation data** panel looks an identifier up in the active data source, both as an airport and as waypoints (`src/navigation/lookup.ts`). Airports get an orange marker. Waypoints get cyan markers labelled with their identifier and region, e.g. `COSTA (MG)`. Waypoint identifiers aren't unique, so every match is shown, and the camera frames them all. If one of the two lookups fails, the other's result is still shown; msfs, for example, has no waypoint search yet.
+
+With the default mock data, try `COSTA` (one waypoint, south of Guatemala City), `D114K` (two waypoints, near Cancún and San Salvador) or `MGGT` (an airport).
+
 ## Flight animation
 
 The **Flight** section of the Session panel plans a direct flight between two airports and animates it on the globe. It works with any data source. With the default mock data, try `MMUN` → `MGGT` (440 nm, 58 min), `MGGT` → `MSLP` or `MSLP` → `MMUN`.
@@ -156,7 +162,7 @@ Electron files:
 - **Fetches (remote build only):** the module calls the `navigraph.fetch(requestId, urlPtr, urlLen)` import. The host runs `fetch()` and passes the body (`ok = 1`) or an error message (`ok = 0`) back through `navigraph_fetch_complete(requestId, ok, ptr, len)`.
 - **Functions:** the same set as the MSFS interface: `GetAirport`, `GetWaypoints`, `GetAirportsInRange`, `ExecuteSQLQuery`, `GetDatabaseInfo`, and more.
 
-The `mock` build embeds a mock database (AIRAC 2401) with 16 airports in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP`.
+The `mock` build embeds a mock database (AIRAC 2401) with 16 airports and 245 en-route waypoints in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP` for airports, and `COSTA` or `D114K` for waypoints.
 
 The `remote` build (the `remote-data` feature of the [`feat/standalone-mode` fork](https://github.com/sathishkottravel/msfs-navigation-data-interface/tree/feat/standalone-mode)) ships without data. On connect, `StandaloneTransport` asks the backend for a signed Navigraph package URL, then calls `DownloadNavigationData` with it; the module downloads the zip through the host and installs it in memory. The backend must implement:
 
