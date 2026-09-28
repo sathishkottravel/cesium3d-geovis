@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { distanceNm, planFlight } from "../../src/flight/flightPlan";
+import { routeOffset, waypointsAlongRoute } from "../../src/flight/routeWaypoints";
 import { NavigationDataInterface } from "../../src/navigation/NavigationDataInterface";
 import { StandaloneTransport } from "../../src/navigation/transports/StandaloneTransport";
 import type { Airport } from "../../src/navigation/types";
@@ -54,6 +55,27 @@ describe("flight planning with airports from the mock WASM database", () => {
       expect(Number.isFinite(s.latitude) && Number.isFinite(s.longitude)).toBe(true);
       expect(s.altitudeFt).toBeGreaterThanOrEqual(floor - 1e-6);
       expect(s.altitudeFt).toBeLessThanOrEqual(35_000);
+    }
+  });
+
+  it.each([
+    // [from, to, en-route waypoints within 15 nm, first, last]
+    ["MMUN", "MGGT", 13, "VOBED", "PALMA"],
+    ["MGGT", "MSLP", 9, "COSTA", "IMALU"],
+  ])("finds the en-route waypoints along %s → %s", async (from, to, count, first, last) => {
+    const plan = planFlight(await airport(from), await airport(to));
+    const waypoints = await waypointsAlongRoute(nav, plan);
+
+    expect(waypoints).toHaveLength(count);
+    expect(waypoints[0].ident).toBe(first);
+    expect(waypoints.at(-1)!.ident).toBe(last);
+    let previous = -Infinity;
+    for (const w of waypoints) {
+      expect(w.airportIdent).toBeUndefined(); // en-route only
+      const { crossNm, alongNm } = routeOffset(plan.from.location, plan.to.location, w.location);
+      expect(crossNm).toBeLessThanOrEqual(15);
+      expect(alongNm).toBeGreaterThanOrEqual(previous); // ordered from departure to arrival
+      previous = alongNm;
     }
   });
 
