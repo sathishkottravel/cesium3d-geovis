@@ -107,6 +107,14 @@ export function FlightPanel({ flight }: FlightPanelProps) {
               <input type="checkbox" checked={flight.follow} onChange={(e) => flight.setFollow(e.target.checked)} />
               Follow aircraft
             </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={flight.showWaypoints}
+                onChange={(e) => flight.setShowWaypoints(e.target.checked)}
+              />
+              Show waypoints
+            </label>
           </div>
           <div className="controls" role="group" aria-label="Playback speed">
             {SPEEDS.map((speed) => (

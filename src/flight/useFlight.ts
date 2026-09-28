@@ -14,6 +14,8 @@ export interface FlightControls {
   playing: boolean;
   speed: number;
   follow: boolean;
+  /** Draw the waypoints along the route on the map. */
+  showWaypoints: boolean;
   /** Seconds since departure, reported by the map's clock. */
   elapsed: number;
   routeWaypoints: RouteWaypoints | null;
@@ -24,6 +26,7 @@ export interface FlightControls {
   setPlaying(playing: boolean): void;
   setSpeed(speed: number): void;
   setFollow(follow: boolean): void;
+  setShowWaypoints(show: boolean): void;
   setElapsed(seconds: number): void;
   /** Ignored when `routeId` is no longer the current route (a newer flight started meanwhile). */
   setRouteWaypoints(routeId: number, value: RouteWaypoints): void;
@@ -35,6 +38,7 @@ export function useFlight(): FlightControls {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(false);
+  const [showWaypoints, setShowWaypoints] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [routeWaypoints, setRouteWaypointsState] = useState<RouteWaypoints | null>(null);
   const routeId = useRef(0);
@@ -67,6 +71,7 @@ export function useFlight(): FlightControls {
     playing,
     speed,
     follow,
+    showWaypoints,
     elapsed,
     routeWaypoints,
     start,
@@ -75,6 +80,7 @@ export function useFlight(): FlightControls {
     setPlaying,
     setSpeed,
     setFollow,
+    setShowWaypoints,
     setElapsed,
     setRouteWaypoints,
   };
