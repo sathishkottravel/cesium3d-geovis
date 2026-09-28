@@ -46,4 +46,8 @@ export class NavigationDataInterface {
   searchWaypoints(query: string, near?: Coordinates): Promise<Waypoint[]> {
     return this.transport.searchWaypoints(query.trim(), near);
   }
+
+  getWaypointsInRange(center: Coordinates, rangeNm: number): Promise<Waypoint[]> {
+    return this.transport.getWaypointsInRange(center, rangeNm);
+  }
 }

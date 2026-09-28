@@ -24,6 +24,8 @@ export interface NavigraphWaypoint {
   area_code: string;
   name?: string;
   location: NavigraphCoordinates;
+  /** Only on terminal waypoints. */
+  airport_ident?: string;
 }
 
 export interface NavigraphDatabaseInfo {

@@ -3,6 +3,7 @@ import { ApiClient, ApiError } from "../../../src/api/client";
 import { getNavdataPackageUrl } from "../../../src/api/navdataApi";
 import { createNavigationApi } from "../../../src/api/navigationApi";
 import { ApiTransport } from "../../../src/navigation/transports/ApiTransport";
+import { WaypointsUnavailableError } from "../../../src/navigation/types";
 import { COSTA_APP, COSTA_NAVIGRAPH, MGGT_APP, MGGT_NAVIGRAPH } from "../../fixtures/navigraph";
 import { jsonResponse } from "../../helpers";
 
@@ -161,6 +162,13 @@ describe("ApiTransport", () => {
     for (const [, init] of fetchMock.mock.calls) {
       expect(init?.headers).toMatchObject({ Authorization: "Bearer tok" });
     }
+  });
+
+  it("reports waypoints in range as unavailable (no such endpoint)", async () => {
+    const fetchMock = stubFetch();
+    const result = new ApiTransport("https://x.test").getWaypointsInRange({ latitude: 0, longitude: 0 }, 10);
+    await expect(result).rejects.toBeInstanceOf(WaypointsUnavailableError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("checks backend health on connect", async () => {

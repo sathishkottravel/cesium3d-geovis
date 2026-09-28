@@ -1,6 +1,6 @@
 import { ApiClient, type ApiClientOptions } from "../../api/client";
 import { createNavigationApi, type NavigationApi } from "../../api/navigationApi";
-import type { Airport, Coordinates, NavigationTransport, Waypoint } from "../types";
+import { WaypointsUnavailableError, type Airport, type Coordinates, type NavigationTransport, type Waypoint } from "../types";
 
 /** Remote navigation data served by an HTTP backend. */
 export class ApiTransport implements NavigationTransport {
@@ -23,5 +23,10 @@ export class ApiTransport implements NavigationTransport {
 
   searchWaypoints(query: string, near?: Coordinates): Promise<Waypoint[]> {
     return this.api.searchWaypoints(query, near);
+  }
+
+  // The standalone-demo API has no waypoints-by-area endpoint (only airports in range).
+  async getWaypointsInRange(_center: Coordinates, _rangeNm: number): Promise<Waypoint[]> {
+    throw new WaypointsUnavailableError("The API data source cannot list waypoints by area");
   }
 }

@@ -1,5 +1,12 @@
 import { loadWasm } from "../WasmLoader";
-import type { Airport, Coordinates, NavigationTransport, TransportKind, Waypoint } from "../types";
+import {
+  WaypointsUnavailableError,
+  type Airport,
+  type Coordinates,
+  type NavigationTransport,
+  type TransportKind,
+  type Waypoint,
+} from "../types";
 
 /**
  * Generic WASM transport, used by the msfs transport. The msfs-2020 build is an
@@ -28,6 +35,11 @@ export abstract class WasmTransport implements NavigationTransport {
   async searchWaypoints(_query: string, _near?: Coordinates): Promise<Waypoint[]> {
     this.ensureConnected();
     throw new Error(`${this.kind}: searchWaypoints is not implemented yet`);
+  }
+
+  async getWaypointsInRange(_center: Coordinates, _rangeNm: number): Promise<Waypoint[]> {
+    this.ensureConnected();
+    throw new WaypointsUnavailableError(`${this.kind}: getWaypointsInRange is not implemented yet`);
   }
 
   protected ensureConnected(): void {
