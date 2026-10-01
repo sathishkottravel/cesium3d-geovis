@@ -73,6 +73,29 @@ The **Flight** section of the Session panel plans a direct flight between two ai
 
 The planning math is in `src/flight/flightPlan.ts` (plain TS, unit tested). The map layer is `src/components/CesiumMap/FlightLayer.tsx`: a Resium `<Clock>` whose multiplier is the playback speed, driving a `SampledPositionProperty`. Its entity graphics are created once per plan. Recreating them on each render makes Cesium rebuild the geometry, and the Viewer pauses the clock while it does, which slows the animation down.
 
+## Flight telemetry
+
+A second mode at `#/flight-telemetry` (use the switcher at the top) shows live aircraft from the Aviation Telemetry GraphQL API (`https://aviation-api-5f6p.onrender.com/graphql`).
+
+- **Area:** enter a latitude, longitude and radius, then click **Find aircraft**. The default is London Heathrow, 40 nm. Aircraft appear as 3D models with callsign labels inside the area circle. With **Auto-refresh** on, positions update every 15 s.
+- **Tracking:** tick aircraft in the list and/or type extra flight IDs (`*` = everything in the area), then click **Track**. This starts the server-side poller (`startTracking`), backfills the last 30 min of the trail (`flight` + `telemetryHistory`), and opens a `liveTelemetry` subscription. Status is polled every 10 s (`trackingStatus`). **Stop** calls `stopTracking`. Tracked aircraft are drawn in orange.
+- **Cold start:** the API and its ADS-B producer sleep when idle and take about a minute to wake. The page starts a warm-up request on load. Requests that fail the way a waking server does (network error, timeout, 502/503/504, "producer unavailable") are retried with backoff for up to 90 s. Meanwhile the panel shows *Waking up server… N s, attempt K*. A 401 isn't retried.
+
+The operations are in `src/telemetry/operations.ts`, the client (HTTP + `graphql-ws`) is in `src/telemetry/graphqlClient.ts`, and the page state is in `src/telemetry/useTelemetry.ts`.
+
+### API token
+
+The API requires `Authorization: Bearer <token>`. A real token is never compiled into a bundle, because any `VITE_*` value is public once deployed.
+
+| Where | Token source |
+| --- | --- |
+| `bun run dev` / `electron:start` | `TELEMETRY_API_TOKEN` in `.env.local` (no `VITE_` prefix). The Vite dev proxy `/telemetry-api` adds it to queries and mutations. Subscriptions are different: the API reads the token only from the graphql-ws `connection_init` payload, so the dev server also serves it to loopback clients at `/__telemetry-dev-token`. |
+| GitHub Pages build / packaged Electron | The user pastes it in the panel under **Connection**. It's kept in `sessionStorage`, or in `localStorage` with **Remember on this device**. **Forget token** clears both. |
+
+When the API rejects the token, the page opens **Connection** and asks for a new one.
+
+> **CORS caveat:** the API's auth middleware answers the CORS preflight (`OPTIONS`) with 401, so browsers on other origins (GitHub Pages, the packaged app's `file://`) can't call it yet. The dev proxy sidesteps this locally. The server needs to let `OPTIONS` through without auth and allow those origins. Short-lived, scoped tokens for browser use are also recommended.
+
 ## Configuration
 
 Settings are Vite env variables. They are fixed at build time, so rebuild after you change them. Set them in `.env.local` or inline on the command line.

@@ -16,6 +16,39 @@ export interface AppConfig {
   wasm: Record<Exclude<TransportKind, "api">, string>;
   /** glTF model of the aircraft in the flight animation. */
   aircraftModel: string;
+  telemetry: TelemetryConfig;
+}
+
+export interface TelemetryConfig {
+  /** GraphQL endpoint of the Aviation Telemetry API; may be relative (the dev proxy). */
+  graphqlUrl: string;
+  /** True when requests go through the Vite dev proxy, which adds the API token server-side. */
+  proxied: boolean;
+  /** Dev server only: where the subscription socket gets the token the proxy can't add (see vite.shared.mts). */
+  devTokenUrl?: string;
+}
+
+export const TELEMETRY_API_URL = "https://aviation-api-5f6p.onrender.com/graphql";
+/** Path the Vite dev server proxies to the telemetry API (see vite.config.mts). */
+export const TELEMETRY_PROXY_PATH = "/telemetry-api";
+
+function resolveTelemetry(): TelemetryConfig {
+  const configured = import.meta.env.VITE_TELEMETRY_GRAPHQL_URL;
+  if (configured) {
+    const proxied = import.meta.env.DEV && configured.startsWith(TELEMETRY_PROXY_PATH);
+    return proxied ? { graphqlUrl: configured, proxied, devTokenUrl: "/__telemetry-dev-token" } : { graphqlUrl: configured, proxied };
+  }
+  if (import.meta.env.DEV) {
+    return { graphqlUrl: `${TELEMETRY_PROXY_PATH}/graphql`, proxied: true, devTokenUrl: "/__telemetry-dev-token" };
+  }
+  return { graphqlUrl: TELEMETRY_API_URL, proxied: false };
+}
+
+/** ws(s):// URL for a GraphQL endpoint; relative URLs resolve against `base` (the page URL). */
+export function toWebSocketUrl(url: string, base?: string): string {
+  const resolved = new URL(url, base);
+  resolved.protocol = resolved.protocol === "https:" ? "wss:" : "ws:";
+  return resolved.toString();
 }
 
 // BASE_URL is "/" in dev, "/<repo>/" on GitHub Pages and "./" in Electron.
@@ -31,4 +64,5 @@ export const appConfig: AppConfig = {
     msfs: `${base}wasm/msfs-2020/msfs_navigation_data_interface.wasm`,
   },
   aircraftModel: `${base}models/CesiumAir/Cesium_Air.glb`,
+  telemetry: resolveTelemetry(),
 };

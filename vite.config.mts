@@ -3,10 +3,10 @@ import { sharedRendererConfig } from "./vite.shared.mjs";
 
 // Web runtime (dev server + static build for GitHub Pages).
 // Set VITE_BASE=/<repo-name>/ when deploying to a GitHub Pages project site.
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   const base = process.env.VITE_BASE ?? "/";
   return {
-    ...sharedRendererConfig(base.endsWith("/") ? base : `${base}/`),
+    ...sharedRendererConfig(base.endsWith("/") ? base : `${base}/`, mode),
     build: { outDir: "dist" },
   };
 });

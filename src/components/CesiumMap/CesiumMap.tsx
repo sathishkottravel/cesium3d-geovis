@@ -1,12 +1,8 @@
-import { Cartesian3, Color, Ion } from "cesium";
+import { Cartesian3, Color } from "cesium";
 import { CameraFlyTo, Entity, Viewer } from "resium";
-import { appConfig } from "../../config/appConfig";
 import type { Airport } from "../../navigation/types";
 import { FlightLayer, type FlightLayerProps } from "./FlightLayer";
-
-if (appConfig.cesiumIonToken) {
-  Ion.defaultAccessToken = appConfig.cesiumIonToken;
-}
+import "./ion";
 
 interface CesiumMapProps {
   airport?: Airport | null;

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppConfig } from "../../src/config/appConfig";
+import { toWebSocketUrl, type AppConfig } from "../../src/config/appConfig";
 
 // appConfig is evaluated once at import time from import.meta.env, so every
 // case stubs the env, drops the module cache and re-imports it.
-async function loadConfig(env: Record<string, string | undefined>): Promise<AppConfig> {
-  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+async function loadConfig(env: Record<string, string | boolean | undefined>): Promise<AppConfig> {
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "boolean") vi.stubEnv(key as "DEV", value);
+    else vi.stubEnv(key, value);
+  }
   vi.resetModules();
   return (await import("../../src/config/appConfig")).appConfig;
 }
@@ -14,6 +17,7 @@ beforeEach(() => {
   vi.stubEnv("VITE_TRANSPORT", undefined);
   vi.stubEnv("VITE_API_BASE_URL", undefined);
   vi.stubEnv("VITE_CESIUM_ION_TOKEN", undefined);
+  vi.stubEnv("VITE_TELEMETRY_GRAPHQL_URL", undefined);
   vi.stubEnv("BASE_URL", "/");
 });
 
@@ -80,5 +84,43 @@ describe("WASM URLs per runtime base (BASE_URL)", () => {
 
   it("does not define a WASM URL for the api transport", async () => {
     expect(Object.keys((await loadConfig({})).wasm)).not.toContain("api");
+  });
+});
+
+describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
+  it("goes through the dev proxy on the dev server", async () => {
+    expect((await loadConfig({ DEV: true })).telemetry).toEqual({
+      graphqlUrl: "/telemetry-api/graphql",
+      proxied: true,
+      devTokenUrl: "/__telemetry-dev-token",
+    });
+  });
+
+  it("calls the hosted API directly in builds", async () => {
+    expect((await loadConfig({ DEV: false })).telemetry).toEqual({
+      graphqlUrl: "https://aviation-api-5f6p.onrender.com/graphql",
+      proxied: false,
+    });
+  });
+
+  it("never uses the dev token endpoint in builds", async () => {
+    const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "/telemetry-api/graphql" });
+    expect(config.telemetry).toEqual({ graphqlUrl: "/telemetry-api/graphql", proxied: false });
+  });
+
+  it("uses the configured endpoint", async () => {
+    const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "https://t.example.com/graphql" });
+    expect(config.telemetry).toEqual({ graphqlUrl: "https://t.example.com/graphql", proxied: false });
+  });
+});
+
+describe("toWebSocketUrl", () => {
+  it.each([
+    ["https://api.example.com/graphql", undefined, "wss://api.example.com/graphql"],
+    ["http://localhost:8000/graphql", undefined, "ws://localhost:8000/graphql"],
+    ["/telemetry-api/graphql", "http://localhost:5173/#/flight-telemetry", "ws://localhost:5173/telemetry-api/graphql"],
+    ["/telemetry-api/graphql", "https://me.github.io/app/", "wss://me.github.io/telemetry-api/graphql"],
+  ])("%s from %s → %s", (url, base, expected) => {
+    expect(toWebSocketUrl(url, base)).toBe(expected);
   });
 });
