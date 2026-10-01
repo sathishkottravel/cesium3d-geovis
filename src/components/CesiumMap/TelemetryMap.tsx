@@ -1,17 +1,21 @@
 import {
+  CallbackPositionProperty,
+  CallbackProperty,
   Cartesian2,
   Cartesian3,
   Color,
   HeadingPitchRoll,
+  JulianDate,
   LabelStyle,
   Math as CesiumMath,
   Rectangle,
   Transforms,
   VerticalOrigin,
 } from "cesium";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { CameraFlyTo, Entity, Viewer } from "resium";
 import { appConfig } from "../../config/appConfig";
+import { AircraftMotion, type MotionState } from "../../telemetry/motion";
 import type { AreaQuery } from "../../telemetry/operations";
 import { NM_TO_M, toMeters, type AircraftTrack, type Tracks } from "../../telemetry/telemetryState";
 import "./ion";
@@ -59,7 +63,8 @@ export function TelemetryMap({ area, searchId, tracks, trackedIds }: TelemetryMa
   }, [area]);
 
   return (
-    <Viewer full timeline={false} animation={false}>
+    // shouldAnimate: the clock follows wall time, which the aircraft motion is computed against.
+    <Viewer full timeline={false} animation={false} shouldAnimate>
       {areaGraphics && (
         <>
           <CameraFlyTo key={searchId} destination={areaGraphics.view} duration={2} once />
@@ -74,18 +79,33 @@ export function TelemetryMap({ area, searchId, tracks, trackedIds }: TelemetryMa
 }
 
 const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { aircraft: AircraftTrack; tracked: boolean }) {
-  const { id, callsign, latitude, longitude, altitudeFt, track, history } = aircraft;
+  const { id, callsign, history } = aircraft;
   const name = callsign || id;
 
-  const position = useMemo(
-    () => Cartesian3.fromDegrees(longitude, latitude, altitudeMeters(altitudeFt)),
-    [longitude, latitude, altitudeFt],
-  );
-  // The model's nose is +X, which points east at heading 0; ADS-B track is clockwise from north.
-  const orientation = useMemo(
-    () => Transforms.headingPitchRollQuaternion(position, new HeadingPitchRoll(CesiumMath.toRadians(track - 90), 0, 0)),
-    [position, track],
-  );
+  // One motion model per aircraft, fed each new report; Cesium samples it every frame.
+  const [motion] = useState(() => new AircraftMotion(toMotionState(aircraft)));
+  useEffect(() => {
+    motion.update(toMotionState(aircraft), Date.now());
+  }, [motion, aircraft]);
+
+  // Created once: replacing these properties on re-render would reset what Cesium has built.
+  const { position, orientation } = useMemo(() => {
+    const scratch = new Cartesian3();
+    const hpr = new HeadingPitchRoll();
+    const stateAt = (time: JulianDate) => motion.stateAt(JulianDate.toDate(time).getTime());
+    const toCartesian = (s: MotionState, result?: Cartesian3) =>
+      Cartesian3.fromDegrees(s.longitude, s.latitude, altitudeMeters(s.altitudeFt), undefined, result);
+    return {
+      position: new CallbackPositionProperty((time, result) => toCartesian(stateAt(time!), result), false),
+      // The model's nose is +X, which points east at heading 0; ADS-B track is clockwise from north.
+      orientation: new CallbackProperty((time, result) => {
+        const state = stateAt(time!);
+        hpr.heading = CesiumMath.toRadians(state.track - 90);
+        return Transforms.headingPitchRollQuaternion(toCartesian(state, scratch), hpr, undefined, undefined, result);
+      }, false),
+    };
+  }, [motion]);
+
   const label = useMemo(
     () => ({
       text: name,
@@ -99,17 +119,20 @@ const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { air
     }),
     [name, tracked],
   );
-  const trail = useMemo(
-    () =>
-      history.length < 2
-        ? undefined
-        : {
-            positions: history.map((p) => Cartesian3.fromDegrees(p.longitude, p.latitude, altitudeMeters(p.altitudeFt))),
-            width: tracked ? 3 : 1.5,
-            material: tracked ? LIVE_COLOR : AREA_COLOR.withAlpha(0.5),
-          },
-    [history, tracked],
-  );
+  // The reported points, plus the aircraft's drawn position so the trail stays attached to the model.
+  const trail = useMemo(() => {
+    if (history.length === 0) return undefined;
+    const points = history.map((p) => Cartesian3.fromDegrees(p.longitude, p.latitude, altitudeMeters(p.altitudeFt)));
+    const head = new Cartesian3();
+    return {
+      positions: new CallbackProperty(
+        (time) => [...points, position.getValue(time ?? JulianDate.now(), head) ?? points[points.length - 1]],
+        false,
+      ),
+      width: tracked ? 3 : 1.5,
+      material: tracked ? LIVE_COLOR : AREA_COLOR.withAlpha(0.5),
+    };
+  }, [history, tracked, position]);
 
   return (
     <Entity
@@ -124,6 +147,18 @@ const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { air
     />
   );
 });
+
+function toMotionState(a: AircraftTrack): MotionState {
+  // A report stamped later than now (server clock ahead) would freeze the aircraft until the clocks agree.
+  return {
+    time: Math.min(a.updatedAt, Date.now()),
+    latitude: a.latitude,
+    longitude: a.longitude,
+    altitudeFt: a.altitudeFt,
+    groundSpeed: a.groundSpeed,
+    track: a.track,
+  };
+}
 
 /** Aircraft on the ground can report barometric altitude below sea level (e.g. −425 ft); keep them above the ellipsoid. */
 function altitudeMeters(feet: number): number {
