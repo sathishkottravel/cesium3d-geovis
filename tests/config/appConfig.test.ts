@@ -18,6 +18,7 @@ beforeEach(() => {
   vi.stubEnv("VITE_API_BASE_URL", undefined);
   vi.stubEnv("VITE_CESIUM_ION_TOKEN", undefined);
   vi.stubEnv("VITE_TELEMETRY_GRAPHQL_URL", undefined);
+  vi.stubEnv("VITE_TELEMETRY_SOURCE", undefined);
   vi.stubEnv("BASE_URL", "/");
 });
 
@@ -90,6 +91,7 @@ describe("WASM URLs per runtime base (BASE_URL)", () => {
 describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
   it("goes through the dev proxy on the dev server", async () => {
     expect((await loadConfig({ DEV: true })).telemetry).toEqual({
+      source: "api",
       graphqlUrl: "/telemetry-api/graphql",
       proxied: true,
       devTokenUrl: "/__telemetry-dev-token",
@@ -98,6 +100,7 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
 
   it("calls the hosted API directly in builds", async () => {
     expect((await loadConfig({ DEV: false })).telemetry).toEqual({
+      source: "api",
       graphqlUrl: "https://aviation-api-5f6p.onrender.com/graphql",
       proxied: false,
     });
@@ -105,12 +108,20 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
 
   it("never uses the dev token endpoint in builds", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "/telemetry-api/graphql" });
-    expect(config.telemetry).toEqual({ graphqlUrl: "/telemetry-api/graphql", proxied: false });
+    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "/telemetry-api/graphql", proxied: false });
   });
 
   it("uses the configured endpoint", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "https://t.example.com/graphql" });
-    expect(config.telemetry).toEqual({ graphqlUrl: "https://t.example.com/graphql", proxied: false });
+    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "https://t.example.com/graphql", proxied: false });
+  });
+
+  it.each([
+    ["sample", "sample"],
+    ["api", "api"],
+    ["mock", "api"],
+  ])("starts with VITE_TELEMETRY_SOURCE=%s as %s", async (value, expected) => {
+    expect((await loadConfig({ VITE_TELEMETRY_SOURCE: value })).telemetry.source).toBe(expected);
   });
 });
 

@@ -1,5 +1,10 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
-import { maskSecret, type TelemetrySettings } from "../../telemetry/telemetrySettings";
+import {
+  maskSecret,
+  SOURCE_LABELS,
+  type TelemetrySettings,
+  type TelemetrySource,
+} from "../../telemetry/telemetrySettings";
 import { parseIds } from "../../telemetry/telemetryState";
 import type { ServerState, TelemetryControls } from "../../telemetry/useTelemetry";
 import { SecretInput } from "../common/SecretInput";
@@ -52,7 +57,25 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
 
   return (
     <section className="panel telemetry-panel">
-      <ServerStatus server={server} onRetry={telemetry.wake} />
+      <div className="source-row">
+        <label htmlFor={`${id}-source`}>Data</label>
+        <select
+          id={`${id}-source`}
+          value={telemetry.settings.source}
+          onChange={(e) => telemetry.saveSettings({ ...telemetry.settings, source: e.target.value as TelemetrySource })}
+        >
+          {(Object.keys(SOURCE_LABELS) as TelemetrySource[]).map((source) => (
+            <option key={source} value={source}>
+              {SOURCE_LABELS[source]}
+            </option>
+          ))}
+        </select>
+      </div>
+      {telemetry.settings.source === "sample" ? (
+        <p className="server-status ready">● Sample traffic: 25 recorded aircraft, simulated movement</p>
+      ) : (
+        <ServerStatus server={server} onRetry={telemetry.wake} />
+      )}
 
       <h2>Area</h2>
       <form className="area-form" onSubmit={search}>
@@ -197,7 +220,7 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
         </ul>
       )}
 
-      <ConnectionSettings telemetry={telemetry} />
+      {telemetry.settings.source === "api" && <ConnectionSettings telemetry={telemetry} />}
     </section>
   );
 }

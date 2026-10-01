@@ -78,7 +78,7 @@ const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { air
   const name = callsign || id;
 
   const position = useMemo(
-    () => Cartesian3.fromDegrees(longitude, latitude, toMeters(altitudeFt)),
+    () => Cartesian3.fromDegrees(longitude, latitude, altitudeMeters(altitudeFt)),
     [longitude, latitude, altitudeFt],
   );
   // The model's nose is +X, which points east at heading 0; ADS-B track is clockwise from north.
@@ -104,7 +104,7 @@ const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { air
       history.length < 2
         ? undefined
         : {
-            positions: history.map((p) => Cartesian3.fromDegrees(p.longitude, p.latitude, toMeters(p.altitudeFt))),
+            positions: history.map((p) => Cartesian3.fromDegrees(p.longitude, p.latitude, altitudeMeters(p.altitudeFt))),
             width: tracked ? 3 : 1.5,
             material: tracked ? LIVE_COLOR : AREA_COLOR.withAlpha(0.5),
           },
@@ -124,6 +124,11 @@ const AircraftEntity = memo(function AircraftEntity({ aircraft, tracked }: { air
     />
   );
 });
+
+/** Aircraft on the ground can report barometric altitude below sea level (e.g. −425 ft); keep them above the ellipsoid. */
+function altitudeMeters(feet: number): number {
+  return toMeters(Math.max(feet, 0));
+}
 
 function describe(a: AircraftTrack): string {
   const rows: [string, string][] = [

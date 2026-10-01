@@ -1,11 +1,20 @@
 import type { SettingsStorage } from "../config/transportSettings";
 
+/** "sample" answers the same operations offline from recorded traffic (see mock/MockTelemetryServer). */
+export type TelemetrySource = "api" | "sample";
+
+export const SOURCE_LABELS: Record<TelemetrySource, string> = {
+  api: "Live API",
+  sample: "Sample data (offline)",
+};
+
 /**
  * Connection settings of the telemetry page. The API token is never part of a build: in dev the Vite
  * proxy adds it; otherwise the user pastes it here. It's kept in sessionStorage (gone with the tab)
  * unless the user opts into localStorage with "Remember on this device".
  */
 export interface TelemetrySettings {
+  source: TelemetrySource;
   graphqlUrl: string;
   token: string;
   remember: boolean;
@@ -40,11 +49,16 @@ function read(storage: SettingsStorage | undefined): Record<string, unknown> | n
   }
 }
 
-/** Session settings win over remembered ones; anything missing comes from `graphqlUrl`'s default. */
-export function loadTelemetrySettings(stores: SettingsStores, defaultUrl: string): TelemetrySettings {
+/** Session settings win over remembered ones; anything missing comes from the defaults. */
+export function loadTelemetrySettings(
+  stores: SettingsStores,
+  defaultUrl: string,
+  defaultSource: TelemetrySource = "api",
+): TelemetrySettings {
   const local = read(stores.local);
   const saved = read(stores.session) ?? local ?? {};
   return {
+    source: saved.source === "api" || saved.source === "sample" ? saved.source : defaultSource,
     graphqlUrl: typeof saved.graphqlUrl === "string" && saved.graphqlUrl ? saved.graphqlUrl : defaultUrl,
     token: typeof saved.token === "string" ? saved.token : "",
     remember: local !== null && saved === local,

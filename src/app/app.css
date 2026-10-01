@@ -259,3 +259,14 @@ body,
   align-items: center;
   gap: 4px;
 }
+
+.panel .source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.panel .source-row select {
+  flex: 1;
+}

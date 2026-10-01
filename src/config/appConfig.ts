@@ -20,6 +20,8 @@ export interface AppConfig {
 }
 
 export interface TelemetryConfig {
+  /** Initial data source of the telemetry page: the live API, or offline sample data. */
+  source: "api" | "sample";
   /** GraphQL endpoint of the Aviation Telemetry API; may be relative (the dev proxy). */
   graphqlUrl: string;
   /** True when requests go through the Vite dev proxy, which adds the API token server-side. */
@@ -33,15 +35,11 @@ export const TELEMETRY_API_URL = "https://aviation-api-5f6p.onrender.com/graphql
 export const TELEMETRY_PROXY_PATH = "/telemetry-api";
 
 function resolveTelemetry(): TelemetryConfig {
+  const source = import.meta.env.VITE_TELEMETRY_SOURCE === "sample" ? "sample" : "api";
   const configured = import.meta.env.VITE_TELEMETRY_GRAPHQL_URL;
-  if (configured) {
-    const proxied = import.meta.env.DEV && configured.startsWith(TELEMETRY_PROXY_PATH);
-    return proxied ? { graphqlUrl: configured, proxied, devTokenUrl: "/__telemetry-dev-token" } : { graphqlUrl: configured, proxied };
-  }
-  if (import.meta.env.DEV) {
-    return { graphqlUrl: `${TELEMETRY_PROXY_PATH}/graphql`, proxied: true, devTokenUrl: "/__telemetry-dev-token" };
-  }
-  return { graphqlUrl: TELEMETRY_API_URL, proxied: false };
+  const graphqlUrl = configured || (import.meta.env.DEV ? `${TELEMETRY_PROXY_PATH}/graphql` : TELEMETRY_API_URL);
+  const proxied = Boolean(import.meta.env.DEV) && graphqlUrl.startsWith(TELEMETRY_PROXY_PATH);
+  return proxied ? { source, graphqlUrl, proxied, devTokenUrl: "/__telemetry-dev-token" } : { source, graphqlUrl, proxied };
 }
 
 /** ws(s):// URL for a GraphQL endpoint; relative URLs resolve against `base` (the page URL). */

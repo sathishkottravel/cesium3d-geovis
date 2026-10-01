@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appConfig } from "../config/appConfig";
 import { GraphQLClient, SocketClosedError } from "./graphqlClient";
+import { MockTelemetryServer } from "./mock/MockTelemetryServer";
 import type { AreaQuery, TrackingStatus } from "./operations";
 import { describeError, isUnauthorized, type RetryAttempt } from "./retry";
 import { TelemetryApi } from "./telemetryApi";
@@ -79,7 +80,9 @@ async function fetchDevToken(): Promise<string> {
 /** State and actions of the flight telemetry page: area search, server-side tracking, live positions. */
 export function useTelemetry(): TelemetryControls {
   const stores = useMemo(browserStores, []);
-  const [settings, setSettings] = useState(() => loadTelemetrySettings(stores, appConfig.telemetry.graphqlUrl));
+  const [settings, setSettings] = useState(() =>
+    loadTelemetrySettings(stores, appConfig.telemetry.graphqlUrl, appConfig.telemetry.source),
+  );
   const proxied = appConfig.telemetry.proxied && settings.graphqlUrl === appConfig.telemetry.graphqlUrl;
   const [server, setServer] = useState<ServerState>({ state: "idle" });
 
@@ -116,11 +119,13 @@ export function useTelemetry(): TelemetryControls {
     }));
   }, []);
 
-  // A new URL or token means a new client (and socket); subscriptions below follow it.
-  const { graphqlUrl, token } = settings;
+  // A new source, URL or token means a new client (and socket); subscriptions below follow it.
+  const { source, graphqlUrl, token } = settings;
   const client = useMemo(
     () =>
-      new GraphQLClient(graphqlUrl, {
+      source === "sample"
+        ? new MockTelemetryServer()
+        : new GraphQLClient(graphqlUrl, {
         getToken: () => token,
         socketToken: proxied ? fetchDevToken : undefined,
         onRetry,
@@ -128,7 +133,7 @@ export function useTelemetry(): TelemetryControls {
           if (event === "connected") setServer({ state: "ready" });
         },
       }),
-    [graphqlUrl, token, proxied, onRetry],
+    [source, graphqlUrl, token, proxied, onRetry],
   );
   const api = useMemo(() => new TelemetryApi(client), [client]);
   useEffect(() => () => client.dispose(), [client]);
@@ -196,6 +201,18 @@ export function useTelemetry(): TelemetryControls {
     },
     [fetchArea],
   );
+
+  // Switching between the live API and sample data: nothing carries over, but keep the searched area.
+  const [shownSource, setShownSource] = useState(source);
+  useEffect(() => {
+    if (source === shownSource) return;
+    setShownSource(source);
+    setTracks({});
+    setTracked({});
+    setAreaResult(null);
+    setAreaError(null);
+    if (area) void fetchArea(area);
+  }, [source, shownSource, area, fetchArea]);
 
   // Periodic position update for everything in the area, tracked or not.
   useEffect(() => {
