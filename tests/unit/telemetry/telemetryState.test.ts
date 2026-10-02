@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Telemetry, TrackableAircraft, TrackableArea } from "../../../src/telemetry/operations";
-import { fromArea, HISTORY_LIMIT, mergeTelemetry, parseIds, withFlight } from "../../../src/telemetry/telemetryState";
+import {
+  fromArea,
+  HISTORY_LIMIT,
+  mergeTelemetry,
+  parseIds,
+  SILENT_MS,
+  withFlight,
+} from "../../../src/telemetry/telemetryState";
 
 const T0 = Date.parse("2026-10-01T12:00:00Z");
 const iso = (secondsAfterT0: number) => new Date(T0 + secondsAfterT0 * 1000).toISOString();
@@ -60,6 +67,13 @@ describe("fromArea", () => {
     expect(Object.keys(next).sort()).toEqual(["a", "c"]);
     expect(next.a.history.map((p) => p.latitude)).toEqual([51.5, 51.6]);
     expect(next.c).toMatchObject({ inArea: false, distanceNm: null });
+  });
+
+  it("drops live aircraft silent for longer than the API keeps them", () => {
+    const live = mergeTelemetry({}, [point("a", 0), point("b", 0)]);
+    const later = (SILENT_MS + 60_000) / 1000;
+    const next = fromArea(mergeTelemetry(live, [point("b", later - 10)]), area(later, []), new Set(["a", "b"]));
+    expect(Object.keys(next)).toEqual(["b"]);
   });
 
   it("doesn't move an aircraft back to an older area snapshot than its live position", () => {

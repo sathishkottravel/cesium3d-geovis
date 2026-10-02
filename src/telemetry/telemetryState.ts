@@ -4,6 +4,8 @@ export const FT_TO_M = 0.3048;
 export const NM_TO_M = 1852;
 /** Points kept per aircraft trail. */
 export const HISTORY_LIMIT = 300;
+/** The API drops flights silent this long from liveTelemetry; so does the map. */
+export const SILENT_MS = 5 * 60_000;
 
 export interface TrackPoint {
   /** Epoch milliseconds. */
@@ -69,14 +71,15 @@ function blank(id: string): AircraftTrack {
 }
 
 /**
- * Applies an area query result: upserts listed aircraft and drops the ones that left the area,
- * except those in `keep` (tracked ids, which live telemetry still updates).
+ * Applies an area query result: upserts listed aircraft and drops the ones that left the area, except
+ * those live telemetry still updates (tracked ids in `keep`, or with recent live positions).
  */
 export function fromArea(tracks: Tracks, area: TrackableArea, keep: ReadonlySet<string> = new Set()): Tracks {
   const time = Date.parse(area.fetchedAt) || Date.now();
   const next: Record<string, AircraftTrack> = {};
   for (const [id, track] of Object.entries(tracks)) {
-    if (keep.has(id) || track.live) next[id] = { ...track, inArea: false, distanceNm: null };
+    const silent = time - track.updatedAt > SILENT_MS;
+    if ((keep.has(id) || track.live) && !silent) next[id] = { ...track, inArea: false, distanceNm: null };
   }
   for (const a of area.aircraft) {
     const current = next[a.icaoHex] ?? tracks[a.icaoHex] ?? blank(a.icaoHex);

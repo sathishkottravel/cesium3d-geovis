@@ -61,8 +61,22 @@ export interface TelemetryControls {
 
   tracks: Tracks;
   tracked: Readonly<Record<string, TrackedAircraft>>;
+  /** ICAO hex of every aircraft with a live subscription (or "*"). */
+  liveIds: ReadonlySet<string>;
   track(ids: string[]): void;
   stop(ids: string[]): void;
+}
+
+const ICAO_HEX = /^[0-9a-f]{6}$/i;
+
+/**
+ * The id liveTelemetry knows a tracked aircraft by: its ICAO hex, lowercased, or "*". Tracking accepts
+ * a callsign too; its hex comes with the tracking status, and is null until the server has resolved it.
+ */
+export function liveIdOf(id: string, tracked: TrackedAircraft | undefined): string | null {
+  if (id === "*") return "*";
+  const hex = tracked?.status?.icaoHex ?? (ICAO_HEX.test(id) ? id : null);
+  return hex ? hex.toLowerCase() : null;
 }
 
 /** The dev server's token for the subscription socket; empty when it has none. */
@@ -104,11 +118,21 @@ export function useTelemetry(): TelemetryControls {
     [tracked],
   );
   const activeKey = activeIds.join(",");
+  // liveTelemetry matches ICAO hex (or "*") only; a callsign subscribes once its status names the hex.
+  const liveIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const id of activeIds) {
+      const liveId = liveIdOf(id, tracked[id]);
+      if (liveId) ids.add(liveId);
+    }
+    return ids;
+  }, [activeIds, tracked]);
+  const liveKey = [...liveIds].sort().join(",");
   // Read by the area refresh, which shouldn't restart when tracking changes.
   const activeRef = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => {
-    activeRef.current = new Set(activeIds);
-  }, [activeIds]);
+    activeRef.current = liveIds;
+  }, [liveIds]);
 
   const onRetry = useCallback(({ attempt, elapsedMs, lastError }: RetryAttempt) => {
     setServer((s) => ({
@@ -230,19 +254,22 @@ export function useTelemetry(): TelemetryControls {
       for (const id of ids) {
         patchTracked(id, { pending: true, error: undefined });
         void (async () => {
+          let status: TrackingStatus;
           try {
-            const status = await call(() => api.startTracking(id, area ?? undefined));
+            status = await call(() => api.startTracking(id, area ?? undefined));
             patchTracked(id, { active: true, pending: false, status, error: status.lastError ?? undefined });
           } catch (error) {
             patchTracked(id, { pending: false, error: describeError(error) });
             return;
           }
-          if (id === "*") return;
+          // A callsign's ICAO hex may not be known yet; then live telemetry alone fills the trail.
+          const hex = liveIdOf(id, { active: true, pending: false, status });
+          if (!hex || hex === "*") return;
           // Best effort: the trail so far, and flight details when the API knows the flight.
           try {
             const since = new Date(Date.now() - BACKFILL_MS).toISOString();
-            const { flight, telemetryHistory } = await api.getFlight(id, since);
-            setTracks((current) => withFlight(current, id, flight, telemetryHistory));
+            const { flight, telemetryHistory } = await api.getFlight(hex, since);
+            setTracks((current) => withFlight(current, hex, flight, telemetryHistory));
           } catch {
             // No history yet; live telemetry fills the trail.
           }
@@ -265,12 +292,12 @@ export function useTelemetry(): TelemetryControls {
     [api, call, patchTracked],
   );
 
-  // One live subscription per tracked id, multiplexed over the client's socket.
+  // One live subscription per tracked aircraft, multiplexed over the client's socket.
   useEffect(() => {
-    if (!activeKey) return;
-    const disposers = activeKey.split(",").map((id) =>
+    if (!liveKey) return;
+    const disposers = liveKey.split(",").map((liveId) =>
       api.subscribeLive(
-        id,
+        liveId,
         (batch) => setTracks((current) => mergeTelemetry(current, batch)),
         (error) => {
           let message = describeError(error);
@@ -279,12 +306,15 @@ export function useTelemetry(): TelemetryControls {
             message = "Live connection refused: API token missing or invalid";
             setServer({ state: "unauthorized", message });
           }
-          patchTracked(id, { error: message });
+          setTracked((all) => {
+            const id = Object.keys(all).find((key) => all[key].active && liveIdOf(key, all[key]) === liveId);
+            return id ? { ...all, [id]: { ...all[id], error: message } } : all;
+          });
         },
       ),
     );
     return () => disposers.forEach((dispose) => dispose());
-  }, [api, activeKey, patchTracked]);
+  }, [api, liveKey]);
 
   // Tracking status of every active id.
   useEffect(() => {
@@ -303,6 +333,8 @@ export function useTelemetry(): TelemetryControls {
       );
       polling = false;
     };
+    // Right away too: a callsign's ICAO hex (needed for its live subscription) arrives with its status.
+    void poll();
     const timer = setInterval(() => void poll(), STATUS_POLL_MS);
     return () => clearInterval(timer);
   }, [api, activeKey, patchTracked]);
@@ -337,6 +369,7 @@ export function useTelemetry(): TelemetryControls {
     setAutoRefresh,
     tracks,
     tracked,
+    liveIds,
     track,
     stop,
   };

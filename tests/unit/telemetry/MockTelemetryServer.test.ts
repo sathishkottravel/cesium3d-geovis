@@ -120,36 +120,71 @@ describe("MockTelemetryServer: tracking", () => {
 });
 
 describe("MockTelemetryServer: liveTelemetry", () => {
-  it("streams one flight for a specific id once it's tracked", async () => {
+  it("streams one flight for a tracked id, starting on subscribe", async () => {
     vi.useFakeTimers();
     const { api, advance } = setup();
+    await api.startTracking("4cad96", LONDON);
     const batches: Telemetry[][] = [];
     const unsubscribe = api.subscribeLive("4cad96", (b) => batches.push(b), vi.fn());
-    advance(2_000);
-    expect(batches).toHaveLength(0);
+    advance(100);
+    expect(batches).toHaveLength(1);
 
-    await api.startTracking("4cad96", LONDON);
     advance(3_000);
-    expect(batches).toHaveLength(3);
+    expect(batches).toHaveLength(4);
     expect(batches.every((b) => b.length === 1 && b[0].flightId === "4cad96" && b[0].callsign === "SAS40G")).toBe(true);
-    expect(new Set(batches.map((b) => b[0].timestamp)).size).toBe(3);
-    await expect(api.trackingStatus("4cad96")).resolves.toMatchObject({ publishedCount: 3 });
+    expect(new Set(batches.map((b) => b[0].timestamp)).size).toBe(4);
+    await expect(api.trackingStatus("4cad96")).resolves.toMatchObject({ publishedCount: 4 });
 
     unsubscribe();
     advance(3_000);
-    expect(batches).toHaveLength(3);
+    expect(batches).toHaveLength(4);
   });
 
-  it("streams a few flights at a time for '*'", async () => {
+  it("sends nothing for an untracked id", () => {
+    vi.useFakeTimers();
+    const { api, advance } = setup();
+    const onBatch = vi.fn();
+    api.subscribeLive("4cad96", onBatch, vi.fn());
+    advance(3_000);
+    expect(onBatch).not.toHaveBeenCalled();
+  });
+
+  it("sends every tracked flight for '*'", async () => {
     vi.useFakeTimers();
     const { api, advance } = setup();
     await api.findAircraft(LONDON);
-    await api.startTracking("*", LONDON);
+    await api.startTracking("4cad96", LONDON);
+    await api.startTracking("4cad91", LONDON);
     const batches: Telemetry[][] = [];
     api.subscribeLive("*", (b) => batches.push(b), vi.fn());
-    advance(8_000);
-    expect(batches.map((b) => b.length)).toEqual([1, 2, 3, 4, 1, 2, 3, 4]);
-    expect(new Set(batches.flat().map((t) => t.flightId)).size).toBeGreaterThan(4);
+    // On subscribe, then every second.
+    advance(2_000);
+    expect(batches.map((b) => b.map((t) => t.flightId).sort())).toEqual([
+      ["4cad91", "4cad96"],
+      ["4cad91", "4cad96"],
+      ["4cad91", "4cad96"],
+    ]);
+
+    await api.startTracking("*", LONDON);
+    advance(2_000);
+    const inArea = (await api.findAircraft(LONDON)).aircraft.length;
+    expect(batches.at(-1)).toHaveLength(inArea);
+  });
+
+  it("tracks by callsign, case-insensitively, and reports the ICAO hex to subscribe with", async () => {
+    vi.useFakeTimers();
+    const { api, advance } = setup();
+    await expect(api.startTracking("sas40g", LONDON)).resolves.toMatchObject({
+      aircraftId: "sas40g",
+      icaoHex: "4cad96",
+      running: true,
+    });
+    await expect(api.trackingStatus("SAS40G")).resolves.toMatchObject({ icaoHex: "4cad96", running: true });
+    const onBatch = vi.fn();
+    api.subscribeLive("4CAD96", onBatch, vi.fn());
+    advance(100);
+    expect(onBatch).toHaveBeenCalledWith([expect.objectContaining({ flightId: "4cad96", callsign: "SAS40G" })]);
+    await expect(api.stopTracking("SAS40G")).resolves.toMatchObject({ running: false, icaoHex: "4cad96" });
   });
 
   it("stops all streams on dispose", async () => {

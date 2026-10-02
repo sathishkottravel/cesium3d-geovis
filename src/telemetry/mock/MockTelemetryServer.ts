@@ -70,6 +70,12 @@ function simulate(sample: SampleAircraft): SimulatedAircraft {
 const SIMULATED = SAMPLE_AIRCRAFT.map(simulate);
 const BY_ID = new Map(SIMULATED.map((s) => [s.sample.icaoHex, s]));
 
+/** Like the API: tracking accepts an ICAO hex or a callsign, case-insensitively. */
+function resolve(id: string): SimulatedAircraft | undefined {
+  const key = id.trim().toLowerCase();
+  return BY_ID.get(key) ?? SIMULATED.find((s) => s.sample.callsign.toLowerCase() === key);
+}
+
 /**
  * Sample aircraft position: it keeps its real distance from the area center (on a fixed bearing) and
  * circles there at a plausible speed, so positions change smoothly and trails look like flight paths.
@@ -107,14 +113,16 @@ export interface MockTelemetryOptions {
 
 /**
  * Answers the telemetry GraphQL operations in-process from sample data (no network), for testing and
- * demos while the API or its ADS-B producer is unavailable. Same surface as GraphQLClient.
+ * demos while the API or its ADS-B producer is unavailable. Same surface as GraphQLClient, and the same
+ * documented behaviour: ids are an ICAO hex or a callsign (or "*"), and liveTelemetry sends the latest
+ * position of every matching flight on subscribe and then periodically.
  */
 export class MockTelemetryServer {
   private center: Center = SAMPLE_CENTER;
   private radiusNm = DEFAULT_RADIUS_NM;
+  /** Keyed by ICAO hex, or "*". */
   private readonly trackers = new Map<string, Tracker>();
   private readonly timers = new Set<ReturnType<typeof setInterval>>();
-  private tick = 0;
 
   constructor(private readonly options: MockTelemetryOptions = {}) {}
 
@@ -145,17 +153,22 @@ export class MockTelemetryServer {
     }
   }
 
-  /** `liveTelemetry`: every interval, one flight (a specific id) or a few flights ("*"). */
+  /** `liveTelemetry`: on subscribe, then every interval: one flight (an ICAO hex) or every tracked flight ("*"). */
   subscribe<T>(_query: string, variables: Variables, sink: Sink<T>): () => void {
-    const flightId = String(variables.flightId ?? "*");
-    const timer = setInterval(() => {
+    const flightId = String(variables.flightId ?? "*").toLowerCase();
+    const send = () => {
       const batch = this.liveBatch(flightId);
       if (batch.length > 0) sink.next({ liveTelemetry: batch } satisfies LiveTelemetryResult as T);
-    }, this.options.intervalMs ?? 2_000);
+    };
+    const first = setTimeout(send, 0);
+    const timer = setInterval(send, this.options.intervalMs ?? 2_000);
+    this.timers.add(first);
     this.timers.add(timer);
     return () => {
-      clearInterval(timer);
-      this.timers.delete(timer);
+      for (const t of [first, timer]) {
+        clearTimeout(t);
+        this.timers.delete(t);
+      }
     };
   }
 
@@ -176,8 +189,8 @@ export class MockTelemetryServer {
       .sort((a, b) => a.position.distanceNm - b.position.distanceNm);
   }
 
-  private isTracked(id: string): boolean {
-    return this.trackers.has(id) || (this.trackers.has("*") && BY_ID.has(id));
+  private isTracked(hex: string): boolean {
+    return this.trackers.has(hex) || (this.trackers.has("*") && BY_ID.has(hex));
   }
 
   private area(variables: Variables): AircraftInAreaResult {
@@ -219,7 +232,7 @@ export class MockTelemetryServer {
   }
 
   private flightById(id: string, since: string | null | undefined): FlightByIdResult {
-    const aircraft = BY_ID.get(id);
+    const aircraft = BY_ID.get(id.toLowerCase());
     if (!aircraft) return { flight: null, telemetryHistory: [] };
     const now = this.now();
     const from = Math.max(since ? Date.parse(since) : now - 10 * 60_000, now - HISTORY_LIMIT * HISTORY_STEP_MS);
@@ -232,26 +245,34 @@ export class MockTelemetryServer {
     return { flight: null, telemetryHistory };
   }
 
+  /** The tracker key ("*" or ICAO hex) for an id, or null when the sample has no such aircraft. */
+  private key(id: string): string | null {
+    return id === "*" ? "*" : (resolve(id)?.sample.icaoHex ?? null);
+  }
+
   private startTracking(id: string, variables: Variables): StartTrackingResult {
     this.setArea(variables);
-    if (id !== "*" && !BY_ID.has(id)) {
+    const aircraftId = id.trim().toLowerCase();
+    const key = this.key(id);
+    if (!key) {
       return {
-        startTracking: { aircraftId: id, icaoHex: id, running: false, lastError: `Aircraft ${id} not in sample data` },
+        startTracking: { aircraftId, icaoHex: null, running: false, lastError: `Aircraft ${id} not in sample data` },
       };
     }
-    if (!this.trackers.has(id)) {
-      this.trackers.set(id, { startedAt: new Date(this.now()).toISOString(), publishedCount: 0, lastPositionAt: null });
+    if (!this.trackers.has(key)) {
+      this.trackers.set(key, { startedAt: new Date(this.now()).toISOString(), publishedCount: 0, lastPositionAt: null });
     }
-    return { startTracking: { aircraftId: id, icaoHex: id === "*" ? null : id, running: true, lastError: null } };
+    return { startTracking: { aircraftId, icaoHex: key === "*" ? null : key, running: true, lastError: null } };
   }
 
   private stopTracking(id: string): StopTrackingResult {
-    const tracker = this.trackers.get(id);
-    this.trackers.delete(id);
+    const key = this.key(id);
+    const tracker = key ? this.trackers.get(key) : undefined;
+    if (key) this.trackers.delete(key);
     return {
       stopTracking: {
-        aircraftId: id,
-        icaoHex: id === "*" ? null : id,
+        aircraftId: id.trim().toLowerCase(),
+        icaoHex: key === "*" ? null : key,
         running: false,
         publishedCount: tracker?.publishedCount ?? 0,
       },
@@ -259,11 +280,12 @@ export class MockTelemetryServer {
   }
 
   private status(id: string): TrackingStatus {
-    const tracker = this.trackers.get(id);
-    const inArea = id === "*" ? true : this.inArea(this.now()).some(({ aircraft }) => aircraft.sample.icaoHex === id);
+    const key = this.key(id);
+    const tracker = key ? this.trackers.get(key) : undefined;
+    const inArea = key === "*" ? true : this.inArea(this.now()).some(({ aircraft }) => aircraft.sample.icaoHex === key);
     return {
-      aircraftId: id,
-      icaoHex: id === "*" ? null : id,
+      aircraftId: id.trim().toLowerCase(),
+      icaoHex: key === "*" ? null : key,
       running: tracker !== undefined,
       inArea,
       lastPositionAt: tracker?.lastPositionAt ?? null,
@@ -276,13 +298,10 @@ export class MockTelemetryServer {
     const time = this.now();
     let aircraft: SimulatedAircraft[];
     if (flightId === "*") {
-      // A few of the tracked aircraft per message, rotating through them.
-      const tracked = this.trackers.has("*")
+      // Every tracked flight: the whole area when "*" is tracked.
+      aircraft = this.trackers.has("*")
         ? this.inArea(time).map((a) => a.aircraft)
         : SIMULATED.filter((a) => this.trackers.has(a.sample.icaoHex));
-      const size = Math.min(tracked.length, 1 + (this.tick % 4));
-      aircraft = Array.from({ length: size }, (_, i) => tracked[(this.tick + i) % tracked.length]);
-      this.tick++;
     } else {
       const one = BY_ID.get(flightId);
       aircraft = one && this.isTracked(flightId) ? [one] : [];

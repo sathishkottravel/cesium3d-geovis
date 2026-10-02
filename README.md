@@ -78,7 +78,7 @@ The planning math is in `src/flight/flightPlan.ts` (plain TS, unit tested). The 
 A second mode at `#/flight-telemetry` (use the switcher at the top) shows live aircraft from the Aviation Telemetry GraphQL API (`https://aviation-api-5f6p.onrender.com/graphql`).
 
 - **Area:** enter a latitude, longitude and radius, then click **Find aircraft**. The default is London Heathrow, 40 nm. Aircraft appear as 3D models with callsign labels inside the area circle. With **Auto-refresh** on, positions update every 15 s.
-- **Tracking:** tick aircraft in the list and/or type extra flight IDs (`*` = everything in the area), then click **Track**. This starts the server-side poller (`startTracking`), backfills the last 30 min of the trail (`flight` + `telemetryHistory`), and opens a `liveTelemetry` subscription. Status is polled every 10 s (`trackingStatus`). **Stop** calls `stopTracking`. Tracked aircraft are drawn in orange.
+- **Tracking:** tick aircraft in the list and/or type extra flight IDs (`*` = everything in the area), then click **Track**. IDs can be an ICAO hex or a callsign; a callsign's live updates start once the server resolves its ICAO hex, because `liveTelemetry` matches hex only. This starts the server-side poller (`startTracking`), backfills the last 30 min of the trail (`flight` + `telemetryHistory`), and opens a `liveTelemetry` subscription. Status is polled every 10 s (`trackingStatus`). **Stop** calls `stopTracking`. Tracked aircraft are drawn in orange. `startTracking` with an area moves the producer's single polled area for every tracked aircraft, and flights silent for 5 minutes drop off the map, as they do on the server.
 - **Cold start:** the API and its ADS-B producer sleep when idle and take about a minute to wake. The page starts a warm-up request on load. Requests that fail the way a waking server does (network error, timeout, 502/503/504, "producer unavailable") are retried with backoff for up to 90 s. Meanwhile the panel shows *Waking up server… N s, attempt K*. A 401 isn't retried.
 
 - **Smooth motion:** between updates, each aircraft keeps moving along its reported track at its reported ground speed (dead reckoning, up to 30 s after its last report). A new report is blended in over 1.5 s instead of making the aircraft jump. The trail stays attached to the drawn model. See `src/telemetry/motion.ts`.
@@ -96,6 +96,8 @@ The API requires `Authorization: Bearer <token>`. A real token is never compiled
 | GitHub Pages build / packaged Electron | The user pastes it in the panel under **Connection**. It's kept in `sessionStorage`, or in `localStorage` with **Remember on this device**. **Forget token** clears both. |
 
 When the API rejects the token, the page opens **Connection** and asks for a new one.
+
+To use a local backend in development, set `TELEMETRY_API_ORIGIN=http://localhost:8000` in `.env.local`. The dev proxy then forwards `/telemetry-api` there. A local API answers CORS pre-checks with 405, so going through the proxy is required there too.
 
 > **CORS caveat:** the API's auth middleware answers the CORS preflight (`OPTIONS`) with 401, so browsers on other origins (GitHub Pages, the packaged app's `file://`) can't call it yet. The dev proxy sidesteps this locally. The server needs to let `OPTIONS` through without auth and allow those origins. Short-lived, scoped tokens for browser use are also recommended.
 

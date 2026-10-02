@@ -22,7 +22,7 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
   const [form, setForm] = useState(DEFAULT_AREA);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [extraIds, setExtraIds] = useState("");
-  const { tracks, tracked, areaResult, server } = telemetry;
+  const { tracks, tracked, liveIds, areaResult, server } = telemetry;
 
   const latitude = Number(form.latitude);
   const longitude = Number(form.longitude);
@@ -41,7 +41,7 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
   }
 
   const listed = Object.values(tracks)
-    .filter((a) => a.inArea || tracked[a.id]?.active)
+    .filter((a) => a.inArea || liveIds.has(a.id))
     .sort((a, b) => (a.distanceNm ?? Infinity) - (b.distanceNm ?? Infinity));
   const ids = [...new Set([...selected, ...parseIds(extraIds)])];
   const activeIds = Object.keys(tracked).filter((t) => tracked[t].active);
@@ -157,7 +157,7 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
                       />
                     </td>
                     <td>
-                      {a.callsign ?? "—"} {tracked[a.id]?.active && <span className="badge">live</span>}
+                      {a.callsign ?? "—"} {(liveIds.has(a.id) || (liveIds.has("*") && a.live)) && <span className="badge">live</span>}
                     </td>
                     <td className="mono">{a.id}</td>
                     <td>{Math.round(a.altitudeFt).toLocaleString("en-US")}</td>
@@ -172,7 +172,7 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps) {
 
       <h2>Tracking</h2>
       <label className="field" htmlFor={`${id}-ids`}>
-        Extra flight IDs (comma-separated, <code>*</code> = all in area)
+        Extra flight IDs: ICAO hex or callsign, comma-separated (<code>*</code> = all in area)
       </label>
       <input
         id={`${id}-ids`}
