@@ -5,6 +5,7 @@
 - [Architecture](#architecture)
 - [Prerequisites and quick start](#prerequisites-and-quick-start)
 - [Route planner: flight animation](#route-planner-flight-animation)
+- [Navigation data lookup](#navigation-data-lookup)
 - [Configuration](#configuration)
 - [Web runtime](#web-runtime)
 - [Electron runtime](#electron-runtime)
@@ -72,6 +73,7 @@ The **Flight** section of the Session panel plans a direct flight between two ai
 - **Route:** the great circle between the two airports, flown at a constant 450 kt. The aircraft climbs and descends at about 300 ft per nm (roughly 3°) from and to field elevation, and cruises at 35,000 ft. Short hops level off below cruise.
 - **Real time:** at `1×` the animation takes as long as the flight. `10×`, `60×` and `600×` speed it up; you can change speed while the flight is running.
 - **Aircraft:** a 3D model that points its nose along its direction of travel. It's Cesium's sample `Cesium_Air.glb`, used under Apache-2.0; see `public/models/README.md`.
+- **Waypoints along the route:** when a flight starts, the en-route waypoints within 15 nm of the route are fetched from the data source and shown as cyan markers. The Flight panel shows how many were found. Terminal (procedure) waypoints are left out because they cluster at the airports. Labels hide when the camera is more than 1,000 km away, where they would overlap. The standalone data sources support this (with the mock data: 13 waypoints along MMUN → MGGT, 9 along MGGT → MSLP). The API data source can't list waypoints by area, so the panel says it's not available there.
 - **Controls:** Pause/Resume, Restart, and **Follow aircraft** (the camera tracks it). The panel shows elapsed and total time, altitude, and when the aircraft has arrived.
 
 ![Follow aircraft view of the MMUN to MGGT flight with the mock data, paused at cruise over southern Petén, Guatemala: the 3D aircraft close up with its orange trail and the white route line](flight_screenshot.png)
@@ -79,6 +81,12 @@ The **Flight** section of the Session panel plans a direct flight between two ai
 *Follow aircraft at cruise: MMUN → MGGT, 44 min 45 s in (336 nm out, 35,000 ft), over southern Petén, Guatemala (about 16.13°N, 89.68°W).*
 
 The planning math is in `src/flight/flightPlan.ts` (plain TS, unit tested). The map layer is `src/components/CesiumMap/FlightLayer.tsx`: a Resium `<Clock>` whose multiplier is the playback speed, driving a `SampledPositionProperty`. Its entity graphics are created once per plan. Recreating them on each render makes Cesium rebuild the geometry, and the Viewer pauses the clock while it does, which slows the animation down.
+
+## Navigation data lookup
+
+The **Navigation data** panel looks an identifier up in the active data source, both as an airport and as waypoints (`src/navigation/lookup.ts`). Airports get an orange marker. Waypoints get cyan markers labelled with their identifier and region, e.g. `COSTA (MG)`. Waypoint identifiers aren't unique, so every match is shown, and the camera frames them all. If one of the two lookups fails, the other's result is still shown; msfs, for example, has no waypoint search yet.
+
+With the default mock data, try `COSTA` (one waypoint, south of Guatemala City), `D114K` (two waypoints, near Cancún and San Salvador) or `MGGT` (an airport).
 
 ## Configuration
 
@@ -163,7 +171,7 @@ Electron files:
 - **Fetches (remote build only):** the module calls the `navigraph.fetch(requestId, urlPtr, urlLen)` import. The host runs `fetch()` and passes the body (`ok = 1`) or an error message (`ok = 0`) back through `navigraph_fetch_complete(requestId, ok, ptr, len)`.
 - **Functions:** the same set as the MSFS interface: `GetAirport`, `GetWaypoints`, `GetAirportsInRange`, `ExecuteSQLQuery`, `GetDatabaseInfo`, and more.
 
-The `mock` build embeds a mock database (AIRAC 2401) with 16 airports in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP`.
+The `mock` build embeds a mock database (AIRAC 2401) with 16 airports and 245 en-route waypoints in Mexico and Central America. Try `MGGT`, `MMUN` or `MSLP` for airports, and `COSTA` or `D114K` for waypoints.
 
 The `remote` build (the `remote-data` feature of the [`feat/standalone-mode` fork](https://github.com/sathishkottravel/msfs-navigation-data-interface/tree/feat/standalone-mode)) ships without data. On connect, `StandaloneTransport` asks the backend for a signed Navigraph package URL, then calls `DownloadNavigationData` with it; the module downloads the zip through the host and installs it in memory. The backend must implement:
 

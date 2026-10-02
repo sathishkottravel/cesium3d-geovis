@@ -4,19 +4,26 @@ import { FlightPanel } from "../components/FlightPanel/FlightPanel";
 import { NavigationPanel } from "../components/NavigationPanel/NavigationPanel";
 import { TransportPanel } from "../components/TransportPanel/TransportPanel";
 import { useFlight } from "../flight/useFlight";
-import type { Airport } from "../navigation/types";
+import type { LookupResult } from "../navigation/lookup";
 
 export function MapView() {
-  const [airport, setAirport] = useState<Airport | null>(null);
+  const [found, setFound] = useState<Pick<LookupResult, "airport" | "waypoints">>({ airport: null, waypoints: [] });
   const flight = useFlight();
-  const { plan, playing, speed, follow, setElapsed } = flight;
+  const { plan, playing, speed, follow, setElapsed, routeWaypoints, showWaypoints } = flight;
   return (
     <>
-      <CesiumMap airport={airport} flight={plan && { plan, playing, speed, follow, onElapsed: setElapsed }} />
+      <CesiumMap
+        airport={found.airport}
+        waypoints={found.waypoints}
+        routeWaypoints={
+          plan && showWaypoints && routeWaypoints?.status === "ready" ? routeWaypoints.waypoints : undefined
+        }
+        flight={plan && { plan, playing, speed, follow, onElapsed: setElapsed }}
+      />
       <aside className="sidebar">
         <FlightPanel flight={flight} />
         <TransportPanel />
-        <NavigationPanel onAirport={setAirport} />
+        <NavigationPanel onResult={setFound} />
       </aside>
     </>
   );

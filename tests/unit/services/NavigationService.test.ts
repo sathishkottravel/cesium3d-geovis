@@ -104,6 +104,7 @@ function controllableTransport(kind: TransportKind) {
     disconnect: vi.fn(async () => {}),
     getAirport: vi.fn(async () => null),
     searchWaypoints: vi.fn(async () => []),
+    getWaypointsInRange: vi.fn(async () => []),
   };
   return { transport, settle: () => settle };
 }

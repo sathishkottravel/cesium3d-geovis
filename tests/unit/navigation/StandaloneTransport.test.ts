@@ -96,6 +96,29 @@ describe("StandaloneTransport (mock data build)", () => {
   });
 });
 
+describe("StandaloneTransport.getWaypointsInRange", () => {
+  it("queries the module by center and range and maps the waypoints", async () => {
+    const transport = new StandaloneTransport("/wasm/mock.wasm");
+    await transport.connect();
+    host.call.mockResolvedValueOnce([
+      { ident: "PAULE", icao_code: "MM", area_code: "LAM", location: { lat: 19.8, long: -87.4 } },
+      { ident: "UN545", icao_code: "MM", area_code: "LAM", airport_ident: "MMUN", location: { lat: 21.08, long: -86.95 } },
+    ]);
+
+    await expect(transport.getWaypointsInRange({ latitude: 20, longitude: -87 }, 21)).resolves.toEqual([
+      { ident: "PAULE", region: "MM", location: { latitude: 19.8, longitude: -87.4 } },
+      { ident: "UN545", region: "MM", airportIdent: "MMUN", location: { latitude: 21.08, longitude: -86.95 } },
+    ]);
+    expect(host.call).toHaveBeenLastCalledWith("GetWaypointsInRange", { center: { lat: 20, long: -87 }, range: 21 });
+  });
+
+  it("rejects before connect", async () => {
+    await expect(
+      new StandaloneTransport("/wasm/mock.wasm").getWaypointsInRange({ latitude: 0, longitude: 0 }, 10),
+    ).rejects.toThrow("not connected");
+  });
+});
+
 describe("StandaloneTransport (remote data build)", () => {
   it("uses the given kind", () => {
     expect(new StandaloneTransport("/a.wasm", { kind: "standalone_remote" }).kind).toBe("standalone_remote");

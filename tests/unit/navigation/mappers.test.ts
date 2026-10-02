@@ -12,6 +12,11 @@ describe("Navigraph → app mappers", () => {
     expect(toWaypoint(COSTA_NAVIGRAPH)).toEqual(COSTA_APP);
   });
 
+  it("keeps the airport of a terminal waypoint", () => {
+    expect(toWaypoint({ ...COSTA_NAVIGRAPH, airport_ident: "MGGT" })).toEqual({ ...COSTA_APP, airportIdent: "MGGT" });
+    expect(toWaypoint(COSTA_NAVIGRAPH)).not.toHaveProperty("airportIdent");
+  });
+
   it("keeps zero coordinates", () => {
     expect(toCoordinates({ lat: 0, long: 0 })).toEqual({ latitude: 0, longitude: 0 });
   });

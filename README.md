@@ -19,6 +19,8 @@ Type a departure and an arrival airport and press **Start**. The aircraft takes 
 
 It works offline with built-in sample airports in Mexico and Central America. Try `MMUN` → `MGGT`, `MGGT` → `MSLP` or `MSLP` → `MMUN`. It can also use real navigation data from a server.
 
+Waypoints along the route appear as cyan markers. You can also look up any airport or waypoint by its identifier (try `COSTA` or `D114K`) to see it on the globe.
+
 ## Flight telemetry
 
 Enter a latitude, longitude and radius, then press **Find aircraft**. Every aircraft in that area appears as a 3D model with its callsign, and positions refresh every 15 seconds. Pick aircraft (or type a flight ID or callsign) and press **Track** to get live updates; tracked aircraft turn orange. Aircraft glide smoothly between updates and leave a trail.
