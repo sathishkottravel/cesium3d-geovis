@@ -8,7 +8,7 @@ The second page of the app, at `#/flight-telemetry` ([live](https://sathishkottr
 
 - **Area:** enter a latitude, longitude and radius, then click **Find aircraft**. The default is London Heathrow, 40 nm. Aircraft appear as 3D models with callsign labels inside the area circle. With **Auto-refresh** on, positions update every 15 s.
 - **Tracking:** tick aircraft in the list and/or type extra flight IDs (`*` = everything in the area), then click **Track**. IDs can be an ICAO hex or a callsign. Tracked aircraft are drawn in orange. **Stop** ends tracking.
-- **Data source:** **Data** switches between the live API and **Sample data (offline)**.
+- **Data source:** **Data** switches between **Live API** and **Sample data (offline)**. Published builds (GitHub Pages, the desktop app) start on sample data; `bun run dev` starts on the live API. The choice is remembered for the session.
 - **Connection:** the GraphQL URL and the API token. It opens by itself when a token is needed.
 
 ## How it works
@@ -26,7 +26,7 @@ The second page of the app, at `#/flight-telemetry` ([live](https://sathishkottr
 - **Silent flights:** flights silent for 5 minutes drop off the map, as they do on the server.
 - **Cold start:** the API and its ADS-B producer sleep when idle and take about a minute to wake. On load, the page sends a warm-up request to the API and pings every URL in `VITE_TELEMETRY_WAKE_URLS` (comma-separated, no auth). Requests that fail the way a waking server does (network error, timeout, 502/503/504, "producer unavailable") are retried with backoff for up to 90 s. Meanwhile the panel shows *Waking up server… N s, attempt K*. A 401 isn't retried.
 - **Smooth motion:** between updates, each aircraft keeps moving along its reported track at its reported ground speed (dead reckoning, up to 30 s after its last report). A new report is blended in over 1.5 s instead of making the aircraft jump. The trail stays attached to the drawn model.
-- **Sample data:** pick *Sample data (offline)* under **Data**, or set `VITE_TELEMETRY_SOURCE=sample`. It needs no network or token. The same operations are answered in-process from 25 aircraft recorded from the API. Each aircraft keeps its recorded distance from the searched area and flies a smooth loop. Like the API, the subscription sends the latest position on subscribe and then periodically: one flight for an ICAO hex, or every tracked flight for `*`.
+- **Sample data:** the default in published builds; pick it under **Data**, or force a start source with `VITE_TELEMETRY_SOURCE=sample|api`. It needs no network or token. The same operations are answered in-process from 25 aircraft recorded from the API. Each aircraft keeps its recorded distance from the searched area and flies a smooth loop. Like the API, the subscription sends the latest position on subscribe and then periodically: one flight for an ICAO hex, or every tracked flight for `*`.
 
 ### Code map
 
@@ -46,17 +46,27 @@ The API expects `Authorization: Bearer <token>`. A real token is never compiled 
 | Where | Token source |
 | --- | --- |
 | `bun run dev` / `electron:start` | `TELEMETRY_API_TOKEN` in `.env.local` (no `VITE_` prefix). The Vite dev proxy `/telemetry-api` adds it to queries and mutations. Subscriptions are different: the API reads the token only from the graphql-ws `connection_init` payload, so the dev server also serves it to loopback clients at `/__telemetry-dev-token`. |
-| GitHub Pages build | Viewing needs no token when the API runs with `PUBLIC_READ=true`. To start or stop tracking, the user pastes a token under **Connection**. It's kept in `sessionStorage`, or in `localStorage` with **Remember on this device**, where any script on the page could read it; a static site has nothing safer. **Forget token** clears it. |
+| GitHub Pages build | The page starts on sample data, which needs no token. For **Live API**, the user pastes a token under **Connection**. It's kept in `sessionStorage` (cleared when the tab closes), or in `localStorage` with **Remember on this device**, where any script on the page could read it; a static site has nothing safer. **Forget token** clears it. |
 | Packaged Electron app | The same, but **Remember on this device** keeps the token encrypted by the OS keychain (Electron `safeStorage`, in `<userData>/telemetry-token.bin`), never in `localStorage`. Without a keychain (Linux with no keyring), the token is kept for the session only. |
 | CI | Never. GitHub Secrets keep a value safe in CI, but a secret passed to a `VITE_*` variable is compiled into the published bundle. |
 
-When the API rejects the token, the page opens **Connection** and asks for a new one. This also happens when a public API refuses a mutation with "API token required to start or stop tracking".
+When the API rejects the token (or there is none), the page opens **Connection** and asks for one.
+
+**Why not ship the token, even encrypted?** The browser has to decrypt it to use it, so the key ships too, and the token is visible in the request headers anyway. Anyone could then extract it, and the same `API_TOKEN` currently also guards the API's ingest endpoint. Short page sessions don't help either: the token itself is long-lived until rotated.
+
+### Backend options for token-free live data
+These are changes to the [Aviation Telemetry API](https://github.com/sathishkottravel/aviation-telemetry-service), outside this repo. The frontend works with the API as it is.
+
+1. **Separate tokens by scope:** a low-risk view/track token, kept apart from the ingest and admin tokens, so a leaked frontend token can't write data.
+2. **Short-lived tokens:** a login step (e.g. GitHub OAuth or a passcode) on the API mints tokens that expire after 15–60 minutes.
+3. **Public read-only access:** queries and live updates open, start/stop tracking still behind a token. The frontend already handles a refused mutation ("API token required…") by asking for a token.
+4. **A proxy that holds the token:** e.g. a Cloudflare Worker that forwards only this app's operations, with rate limits.
 
 ## Configuration
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `VITE_TELEMETRY_SOURCE` | build | `api` (default) or `sample` |
+| `VITE_TELEMETRY_SOURCE` | build | start source: `api` or `sample`. Default: `api` in `bun run dev`, `sample` in builds |
 | `VITE_TELEMETRY_GRAPHQL_URL` | build | GraphQL endpoint. Default: `/telemetry-api/graphql` (the dev proxy) in development, the hosted API in builds |
 | `VITE_TELEMETRY_WAKE_URLS` | build | comma-separated health URLs pinged when the page opens |
 | `TELEMETRY_API_TOKEN` | `.env.local`, dev server only | token the dev proxy adds; never reaches the browser bundle |
@@ -66,7 +76,6 @@ To use a local backend in development, set `TELEMETRY_API_ORIGIN=http://localhos
 
 ## Live deployment checklist
 
-- GitHub → Settings → Secrets and variables → Actions → **Variables**: `VITE_TELEMETRY_WAKE_URLS` (comma-separated health URLs, see `.env.example`). Both workflows pass it to the build.
-- API (Render dashboard or the VM's `.env`): `PUBLIC_READ=true` and `CORS_ORIGINS=https://sathishkottravel.github.io,null`. `null` is the origin of the packaged Electron app's `file://` pages. See the API's README, *Authentication*.
-
-> **CORS:** browsers on other origins (GitHub Pages, the packaged app's `file://`) can call the API only when it lists them in `CORS_ORIGINS`. Without that, it answers the browser's preflight (`OPTIONS`) with 401. The dev proxy sidesteps this locally.
+- Optional, GitHub → Settings → Secrets and variables → Actions → **Variables**: `VITE_TELEMETRY_WAKE_URLS` (comma-separated health URLs, see `.env.example`). Both workflows pass it to the build; the page pings them when someone switches to **Live API**.
+- Nothing else is needed for visitors: the page starts on sample data.
+- For **Live API** from the published site, the API must allow the site's origin (CORS): `https://sathishkottravel.github.io`, and `null` for the packaged desktop app, whose `file://` pages send `Origin: null`. Without it, the browser's preflight (`OPTIONS`) is refused with 401. The dev proxy sidesteps this locally.

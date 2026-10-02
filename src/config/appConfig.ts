@@ -20,7 +20,7 @@ export interface AppConfig {
 }
 
 export interface TelemetryConfig {
-  /** Initial data source of the telemetry page: the live API, or offline sample data. */
+  /** Initial data source of the telemetry page: the live API (dev default), or offline sample data (build default). */
   source: "api" | "sample";
   /** GraphQL endpoint of the Aviation Telemetry API; may be relative (the dev proxy). */
   graphqlUrl: string;
@@ -37,7 +37,10 @@ export const TELEMETRY_API_URL = "https://aviation-api-5f6p.onrender.com/graphql
 export const TELEMETRY_PROXY_PATH = "/telemetry-api";
 
 function resolveTelemetry(): TelemetryConfig {
-  const source = import.meta.env.VITE_TELEMETRY_SOURCE === "sample" ? "sample" : "api";
+  // Published builds start on sample data: it needs no backend or token, so the page always works for visitors.
+  // `vite` dev starts on the live API through the dev proxy. Users can switch either way in the page.
+  const sourceEnv = import.meta.env.VITE_TELEMETRY_SOURCE;
+  const source = sourceEnv === "sample" || sourceEnv === "api" ? sourceEnv : import.meta.env.DEV ? "api" : "sample";
   const wakeUrls = (import.meta.env.VITE_TELEMETRY_WAKE_URLS ?? "")
     .split(",")
     .map((url) => url.trim())

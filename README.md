@@ -23,9 +23,9 @@ It works offline with built-in sample airports in Mexico and Central America. Tr
 
 Enter a latitude, longitude and radius, then press **Find aircraft**. Every aircraft in that area appears as a 3D model with its callsign, and positions refresh every 15 seconds. Pick aircraft (or type a flight ID or callsign) and press **Track** to get live updates; tracked aircraft turn orange. Aircraft glide smoothly between updates and leave a trail.
 
-- **No account needed to look:** viewing is open. Starting and stopping tracking needs an API token, which you paste into the page.
-- **First load can take a minute:** the data servers sleep when unused. The page wakes them up and shows the progress.
-- **Offline demo:** choose **Data → Sample data (offline)** to try the page with recorded traffic, no network needed.
+- **Opens with sample traffic:** the published page starts on **Sample data**, 25 recorded aircraft that fly without any server or account, so it always works.
+- **Live data needs an API token:** switch **Data → Live API** and paste your token under **Connection**. It's kept for the browser session only (or in the OS keychain in the desktop app).
+- **First live load can take a minute:** the data servers sleep when unused. The page wakes them up and shows the progress.
 
 Data comes from the [Aviation Telemetry API](https://github.com/sathishkottravel/aviation-telemetry-service), which collects positions from [ADSB.lol](https://adsb.lol).
 
@@ -60,4 +60,4 @@ Desktop installers for Windows, macOS and Linux are attached to each [GitHub Rel
 ## Documentation
 
 - [Development guide](docs/development.md): architecture, configuration, the web and desktop builds, navigation data sources, CI/CD, scripts and project layout.
-- [Flight telemetry](docs/flight-telemetry.md): how the telemetry page works, API tokens, sample data, and what to configure for a live deployment.
+- [Flight telemetry](docs/flight-telemetry.md): how the telemetry page works, sample data, API tokens, and what a live deployment needs.

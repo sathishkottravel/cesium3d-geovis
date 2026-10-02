@@ -102,7 +102,7 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
 
   it("calls the hosted API directly in builds", async () => {
     expect((await loadConfig({ DEV: false })).telemetry).toEqual({
-      source: "api",
+      source: "sample",
       graphqlUrl: "https://aviation-api-5f6p.onrender.com/graphql",
       proxied: false,
       wakeUrls: [],
@@ -111,12 +111,12 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
 
   it("never uses the dev token endpoint in builds", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "/telemetry-api/graphql" });
-    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "/telemetry-api/graphql", proxied: false, wakeUrls: [] });
+    expect(config.telemetry).toEqual({ source: "sample", graphqlUrl: "/telemetry-api/graphql", proxied: false, wakeUrls: [] });
   });
 
   it("uses the configured endpoint", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "https://t.example.com/graphql" });
-    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "https://t.example.com/graphql", proxied: false, wakeUrls: [] });
+    expect(config.telemetry).toEqual({ source: "sample", graphqlUrl: "https://t.example.com/graphql", proxied: false, wakeUrls: [] });
   });
 
   it("reads extra wake-up URLs, comma-separated", async () => {
@@ -124,12 +124,18 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
     expect(config.telemetry.wakeUrls).toEqual(["https://a.test/health", "https://b.test/health"]);
   });
 
+  it("starts on sample data in builds and on the live API in dev", async () => {
+    expect((await loadConfig({ DEV: false })).telemetry.source).toBe("sample");
+    expect((await loadConfig({ DEV: true })).telemetry.source).toBe("api");
+  });
+
   it.each([
-    ["sample", "sample"],
-    ["api", "api"],
-    ["mock", "api"],
-  ])("starts with VITE_TELEMETRY_SOURCE=%s as %s", async (value, expected) => {
-    expect((await loadConfig({ VITE_TELEMETRY_SOURCE: value })).telemetry.source).toBe(expected);
+    ["sample", true, "sample"],
+    ["api", false, "api"],
+    ["mock", false, "sample"],
+    ["mock", true, "api"],
+  ])("VITE_TELEMETRY_SOURCE=%s (dev: %s) starts as %s", async (value, dev, expected) => {
+    expect((await loadConfig({ DEV: dev, VITE_TELEMETRY_SOURCE: value })).telemetry.source).toBe(expected);
   });
 });
 
