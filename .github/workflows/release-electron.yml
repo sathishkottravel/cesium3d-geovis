@@ -33,6 +33,9 @@ jobs:
           VITE_TRANSPORT: ${{ vars.VITE_TRANSPORT || 'standalone' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_CESIUM_ION_TOKEN: ${{ secrets.VITE_CESIUM_ION_TOKEN }}
+          # Health URLs woken when the telemetry page opens (Actions → Variables, not a secret).
+          # Never pass the telemetry API token here: VITE_ values are embedded in the public bundle.
+          VITE_TELEMETRY_WAKE_URLS: ${{ vars.VITE_TELEMETRY_WAKE_URLS }}
       - uses: actions/upload-artifact@v4
         with:
           name: electron-${{ matrix.os }}

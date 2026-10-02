@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
+import { SecretInput } from "../common/SecretInput";
 import {
   MODE_LABELS,
   TRANSPORT_MODES,
@@ -9,32 +10,6 @@ import {
 } from "../../config/transportSettings";
 import { getNavigationService } from "../../services/NavigationService";
 import { useNavigation } from "../../services/useNavigation";
-
-/** Secret text field: hidden like a password, with a show/hide toggle. */
-function SecretInput(props: {
-  id: string;
-  value: string;
-  placeholder?: string;
-  onChange(value: string): void;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <div className="secret-input">
-      <input
-        id={props.id}
-        type={visible ? "text" : "password"}
-        value={props.value}
-        placeholder={props.placeholder}
-        onChange={(e) => props.onChange(e.target.value)}
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <button type="button" onClick={() => setVisible((v) => !v)} aria-pressed={visible}>
-        {visible ? "Hide" : "Show"}
-      </button>
-    </div>
-  );
-}
 
 /** Picks the navigation data source (mock / remote / api) and switches transports. */
 export function TransportPanel() {

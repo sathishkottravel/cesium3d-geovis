@@ -15,6 +15,8 @@ body,
   flex-direction: column;
   gap: 8px;
   z-index: 10;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
 }
 
 .panel {
@@ -110,4 +112,161 @@ body,
   border-color: #f90;
   color: #000;
   font-weight: 600;
+}
+
+.app-nav {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  background: rgba(20, 24, 32, 0.85);
+  font-size: 13px;
+}
+
+.app-nav a {
+  color: #ddd;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.app-nav a.active {
+  background: #f90;
+  color: #000;
+  font-weight: 600;
+}
+
+.panel .mono {
+  font-family: ui-monospace, monospace;
+}
+
+.panel form.area-form {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.panel form.area-form .controls {
+  grid-column: 1 / -1;
+}
+
+.panel .field {
+  display: block;
+  color: #bbb;
+  margin-bottom: 4px;
+}
+
+.panel input.wide {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.panel .aircraft-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.panel .aircraft-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.panel .aircraft-list th {
+  text-align: left;
+  color: #aaa;
+  font-weight: normal;
+  position: sticky;
+  top: 0;
+  background: rgb(20, 24, 32);
+}
+
+.panel .aircraft-list td,
+.panel .aircraft-list th {
+  padding: 1px 4px;
+}
+
+.panel .badge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #f90;
+  color: #000;
+  font-size: 11px;
+}
+
+.panel .badge.off {
+  background: #555;
+  color: #ddd;
+}
+
+.panel .status-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+}
+
+.panel .status-list li {
+  margin: 2px 0;
+}
+
+.panel .server-status {
+  margin: 2px 0 6px;
+}
+
+.panel .server-status.ready {
+  color: #8f8;
+}
+
+.panel .server-status.waking {
+  color: #ffd27a;
+}
+
+.panel .spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.panel details.connection {
+  margin-top: 8px;
+}
+
+.panel details.connection summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.panel form.settings label.inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel .source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.panel .source-row select {
+  flex: 1;
 }
