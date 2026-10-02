@@ -1,7 +1,7 @@
 import { toAirport, toWaypoint } from "../navigraph/mappers";
 import { NavigraphWasmHost } from "../navigraph/NavigraphWasmHost";
 import type { NavigraphAirport, NavigraphDatabaseInfo, NavigraphWaypoint } from "../navigraph/types";
-import type { Airport, NavigationTransport, Waypoint } from "../types";
+import type { Airport, Coordinates, NavigationTransport, Waypoint } from "../types";
 
 export interface StandaloneTransportOptions {
   kind?: "standalone" | "standalone_remote";
@@ -55,6 +55,14 @@ export class StandaloneTransport implements NavigationTransport {
   async searchWaypoints(query: string): Promise<Waypoint[]> {
     const waypoints = await this.requireHost().call<NavigraphWaypoint[]>("GetWaypoints", {
       ident: query.toUpperCase(),
+    });
+    return waypoints.map(toWaypoint);
+  }
+
+  async getWaypointsInRange(center: Coordinates, rangeNm: number): Promise<Waypoint[]> {
+    const waypoints = await this.requireHost().call<NavigraphWaypoint[]>("GetWaypointsInRange", {
+      center: { lat: center.latitude, long: center.longitude },
+      range: rangeNm,
     });
     return waypoints.map(toWaypoint);
   }

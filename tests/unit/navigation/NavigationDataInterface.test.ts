@@ -9,6 +9,7 @@ function fakeTransport(overrides: Partial<NavigationTransport> = {}): Navigation
     disconnect: vi.fn(async () => {}),
     getAirport: vi.fn(async () => null),
     searchWaypoints: vi.fn(async () => []),
+    getWaypointsInRange: vi.fn(async () => []),
     ...overrides,
   };
 }
@@ -70,6 +71,13 @@ describe("NavigationDataInterface", () => {
     const transport = fakeTransport();
     await new NavigationDataInterface(transport).getAirport("  mggt ");
     expect(transport.getAirport).toHaveBeenCalledWith("MGGT");
+  });
+
+  it("forwards waypoints-in-range queries", async () => {
+    const transport = fakeTransport();
+    const center = { latitude: 14.58, longitude: -90.52 };
+    await new NavigationDataInterface(transport).getWaypointsInRange(center, 20);
+    expect(transport.getWaypointsInRange).toHaveBeenCalledWith(center, 20);
   });
 
   it("trims waypoint queries and forwards the reference position", async () => {

@@ -22,9 +22,11 @@ export function toAirport(airport: NavigraphAirport): Airport {
 }
 
 export function toWaypoint(waypoint: NavigraphWaypoint): Waypoint {
-  return {
+  const result: Waypoint = {
     ident: waypoint.ident,
     region: waypoint.icao_code,
     location: toCoordinates(waypoint.location),
   };
+  if (waypoint.airport_ident) result.airportIdent = waypoint.airport_ident;
+  return result;
 }
