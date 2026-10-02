@@ -1,7 +1,7 @@
 {
   "name": "cesium3d-geovis",
   "productName": "Cesium3D GeoVis",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Geospatial visualization with CesiumJS/Resium — web (GitHub Pages) and Electron runtimes",
   "private": true,
   "main": ".vite/build/main.js",
