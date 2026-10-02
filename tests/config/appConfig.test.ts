@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.stubEnv("VITE_CESIUM_ION_TOKEN", undefined);
   vi.stubEnv("VITE_TELEMETRY_GRAPHQL_URL", undefined);
   vi.stubEnv("VITE_TELEMETRY_SOURCE", undefined);
+  vi.stubEnv("VITE_TELEMETRY_WAKE_URLS", undefined);
   vi.stubEnv("BASE_URL", "/");
 });
 
@@ -95,6 +96,7 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
       graphqlUrl: "/telemetry-api/graphql",
       proxied: true,
       devTokenUrl: "/__telemetry-dev-token",
+      wakeUrls: [],
     });
   });
 
@@ -103,17 +105,23 @@ describe("telemetry GraphQL endpoint (VITE_TELEMETRY_GRAPHQL_URL)", () => {
       source: "api",
       graphqlUrl: "https://aviation-api-5f6p.onrender.com/graphql",
       proxied: false,
+      wakeUrls: [],
     });
   });
 
   it("never uses the dev token endpoint in builds", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "/telemetry-api/graphql" });
-    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "/telemetry-api/graphql", proxied: false });
+    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "/telemetry-api/graphql", proxied: false, wakeUrls: [] });
   });
 
   it("uses the configured endpoint", async () => {
     const config = await loadConfig({ DEV: false, VITE_TELEMETRY_GRAPHQL_URL: "https://t.example.com/graphql" });
-    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "https://t.example.com/graphql", proxied: false });
+    expect(config.telemetry).toEqual({ source: "api", graphqlUrl: "https://t.example.com/graphql", proxied: false, wakeUrls: [] });
+  });
+
+  it("reads extra wake-up URLs, comma-separated", async () => {
+    const config = await loadConfig({ VITE_TELEMETRY_WAKE_URLS: " https://a.test/health, ,https://b.test/health " });
+    expect(config.telemetry.wakeUrls).toEqual(["https://a.test/health", "https://b.test/health"]);
   });
 
   it.each([

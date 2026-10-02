@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_TELEMETRY_GRAPHQL_URL?: string;
   /** Initial telemetry data source: "api" (default) or "sample" (offline sample data). */
   readonly VITE_TELEMETRY_SOURCE?: "api" | "sample";
+  /** Comma-separated health URLs to wake from their cold start when the telemetry page opens. */
+  readonly VITE_TELEMETRY_WAKE_URLS?: string;
 }
 
 interface ImportMeta {

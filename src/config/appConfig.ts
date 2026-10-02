@@ -28,6 +28,8 @@ export interface TelemetryConfig {
   proxied: boolean;
   /** Dev server only: where the subscription socket gets the token the proxy can't add (see vite.shared.mts). */
   devTokenUrl?: string;
+  /** Extra services to wake from their cold start when the page opens (VITE_TELEMETRY_WAKE_URLS, comma-separated). */
+  wakeUrls: string[];
 }
 
 export const TELEMETRY_API_URL = "https://aviation-api-5f6p.onrender.com/graphql";
@@ -36,10 +38,16 @@ export const TELEMETRY_PROXY_PATH = "/telemetry-api";
 
 function resolveTelemetry(): TelemetryConfig {
   const source = import.meta.env.VITE_TELEMETRY_SOURCE === "sample" ? "sample" : "api";
+  const wakeUrls = (import.meta.env.VITE_TELEMETRY_WAKE_URLS ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
   const configured = import.meta.env.VITE_TELEMETRY_GRAPHQL_URL;
   const graphqlUrl = configured || (import.meta.env.DEV ? `${TELEMETRY_PROXY_PATH}/graphql` : TELEMETRY_API_URL);
   const proxied = Boolean(import.meta.env.DEV) && graphqlUrl.startsWith(TELEMETRY_PROXY_PATH);
-  return proxied ? { source, graphqlUrl, proxied, devTokenUrl: "/__telemetry-dev-token" } : { source, graphqlUrl, proxied };
+  return proxied
+    ? { source, graphqlUrl, proxied, devTokenUrl: "/__telemetry-dev-token", wakeUrls }
+    : { source, graphqlUrl, proxied, wakeUrls };
 }
 
 /** ws(s):// URL for a GraphQL endpoint; relative URLs resolve against `base` (the page URL). */

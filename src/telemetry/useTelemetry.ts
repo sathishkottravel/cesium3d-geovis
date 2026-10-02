@@ -180,7 +180,12 @@ export function useTelemetry(): TelemetryControls {
   const wake = useCallback(() => {
     setServer({ state: "idle" });
     call(() => client.health()).catch(() => {});
-  }, [call, client]);
+    // The other services behind the API (producer, worker) sleep too. One request starts each waking;
+    // no-cors because only reaching them matters, not reading the answer.
+    if (source === "api") {
+      for (const url of appConfig.telemetry.wakeUrls) fetch(url, { mode: "no-cors" }).catch(() => {});
+    }
+  }, [call, client, source]);
   // Start waking the server (cold start ≈ 1 min) as soon as the page opens.
   useEffect(wake, [wake]);
 
