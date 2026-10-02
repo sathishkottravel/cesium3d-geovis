@@ -5,6 +5,7 @@ import {
   describeError,
   GraphQLRequestError,
   isColdStartError,
+  isUnauthorized,
   shortenMessage,
   withColdStartRetry,
 } from "../../../src/telemetry/retry";
@@ -91,6 +92,18 @@ describe("withColdStartRetry", () => {
 
   it("uses 10 s steps after the third retry", () => {
     expect([1, 2, 3, 4, 9].map(backoffMs)).toEqual([2_000, 4_000, 8_000, 10_000, 10_000]);
+  });
+});
+
+describe("isUnauthorized", () => {
+  it.each([
+    ["HTTP 401", new ApiError("x", 401), true],
+    ["HTTP 403", new ApiError("x", 403), true],
+    ["mutation refused by a PUBLIC_READ API", new GraphQLRequestError(["API token required to start or stop tracking"]), true],
+    ["HTTP 502", new ApiError("x", 502), false],
+    ["other GraphQL error", new GraphQLRequestError(["Unknown aircraft"]), false],
+  ])("%s → %s", (_label, error, expected) => {
+    expect(isUnauthorized(error)).toBe(expected);
   });
 });
 

@@ -93,13 +93,19 @@ The API requires `Authorization: Bearer <token>`. A real token is never compiled
 | Where | Token source |
 | --- | --- |
 | `bun run dev` / `electron:start` | `TELEMETRY_API_TOKEN` in `.env.local` (no `VITE_` prefix). The Vite dev proxy `/telemetry-api` adds it to queries and mutations. Subscriptions are different: the API reads the token only from the graphql-ws `connection_init` payload, so the dev server also serves it to loopback clients at `/__telemetry-dev-token`. |
-| GitHub Pages build / packaged Electron | The user pastes it in the panel under **Connection**. It's kept in `sessionStorage`, or in `localStorage` with **Remember on this device**. **Forget token** clears both. |
+| GitHub Pages build | Viewing needs no token when the API runs with `PUBLIC_READ=true`. To start or stop tracking, the user pastes a token under **Connection**. It's kept in `sessionStorage`, or in `localStorage` with **Remember on this device**, where any script on the page could read it; a static site has nothing safer. **Forget token** clears it. |
+| Packaged Electron app | The same, but **Remember on this device** keeps the token encrypted by the OS keychain (Electron `safeStorage`, in `<userData>/telemetry-token.bin`), never in `localStorage`. Without a keychain (Linux with no keyring), the token is kept for the session only. |
+| CI | Never. GitHub Secrets keep a value safe in CI, but a secret passed to a `VITE_*` variable is compiled into the published bundle. |
 
-When the API rejects the token, the page opens **Connection** and asks for a new one.
+When the API rejects the token, the page opens **Connection** and asks for a new one. This also happens when a public API refuses a mutation with "API token required to start or stop tracking".
+
+**Live deployment checklist**
+- GitHub → Settings → Secrets and variables → Actions → **Variables**: `VITE_TELEMETRY_WAKE_URLS` (comma-separated health URLs, see `.env.example`). Both workflows pass it to the build.
+- API (Render dashboard or the VM's `.env`): `PUBLIC_READ=true` and `CORS_ORIGINS=https://sathishkottravel.github.io,null`. `null` is the origin of the packaged Electron app's `file://` pages. See the API's README, *Authentication*.
 
 To use a local backend in development, set `TELEMETRY_API_ORIGIN=http://localhost:8000` in `.env.local`. The dev proxy then forwards `/telemetry-api` there. A local API answers CORS pre-checks with 405, so going through the proxy is required there too.
 
-> **CORS caveat:** the API's auth middleware answers the CORS preflight (`OPTIONS`) with 401, so browsers on other origins (GitHub Pages, the packaged app's `file://`) can't call it yet. The dev proxy sidesteps this locally. The server needs to let `OPTIONS` through without auth and allow those origins. Short-lived, scoped tokens for browser use are also recommended.
+> **CORS:** browsers on other origins (GitHub Pages, the packaged app's `file://`) can call the API only when it lists them in `CORS_ORIGINS`. Without that, it answers the browser's preflight (`OPTIONS`) with 401. The dev proxy sidesteps this locally.
 
 ## Configuration
 

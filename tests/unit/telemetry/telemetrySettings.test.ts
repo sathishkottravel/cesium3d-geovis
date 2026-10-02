@@ -97,6 +97,56 @@ describe("telemetry settings", () => {
     expect(() => clearTelemetrySettings({ session: blocked, local: blocked })).not.toThrow();
   });
 
+  describe("desktop app (OS keychain)", () => {
+    function keychain(available = true) {
+      let token: string | null = null;
+      return {
+        get token() {
+          return token;
+        },
+        getTelemetryToken: () => token,
+        setTelemetryToken: (t: string) => {
+          if (available) token = t;
+          return available;
+        },
+        clearTelemetryToken: () => {
+          token = null;
+        },
+      };
+    }
+
+    it("keeps a remembered token in the keychain, never in localStorage", () => {
+      const s = { ...stores(), keychain: keychain() };
+      saveTelemetrySettings(s, { source: "api", graphqlUrl: DEFAULT_URL, token: "s3cret", remember: true });
+      expect(s.keychain.token).toBe("s3cret");
+      expect(s.local.items.get(TELEMETRY_SETTINGS_KEY)).not.toContain("s3cret");
+      // Next start: localStorage plus the keychain.
+      expect(loadTelemetrySettings({ local: s.local, keychain: s.keychain }, DEFAULT_URL)).toMatchObject({
+        token: "s3cret",
+        remember: true,
+      });
+    });
+
+    it("removes it from the keychain when not remembered or forgotten", () => {
+      const s = { ...stores(), keychain: keychain() };
+      saveTelemetrySettings(s, { source: "api", graphqlUrl: DEFAULT_URL, token: "s3cret", remember: true });
+      saveTelemetrySettings(s, { source: "api", graphqlUrl: DEFAULT_URL, token: "s3cret", remember: false });
+      expect(s.keychain.token).toBeNull();
+      saveTelemetrySettings(s, { source: "api", graphqlUrl: DEFAULT_URL, token: "s3cret", remember: true });
+      clearTelemetrySettings(s);
+      expect(s.keychain.token).toBeNull();
+    });
+
+    it("doesn't fall back to plain text without a keychain: the token stays for the session", () => {
+      const s = { ...stores(), keychain: keychain(false) };
+      saveTelemetrySettings(s, { source: "api", graphqlUrl: DEFAULT_URL, token: "s3cret", remember: true });
+      expect(s.local.items.get(TELEMETRY_SETTINGS_KEY)).not.toContain("s3cret");
+      expect(loadTelemetrySettings(s, DEFAULT_URL)).toMatchObject({ token: "s3cret", remember: false });
+      // A new session has no token.
+      expect(loadTelemetrySettings({ local: s.local, keychain: s.keychain }, DEFAULT_URL).token).toBe("");
+    });
+  });
+
   it("masks secrets, revealing at most 4 characters", () => {
     expect(maskSecret("")).toBe("");
     expect(maskSecret("short")).toBe("•••");

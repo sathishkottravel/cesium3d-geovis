@@ -85,6 +85,8 @@ export function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** A rejected token: HTTP 401/403, or (API with PUBLIC_READ) a mutation refused with "API token required…". */
 export function isUnauthorized(error: unknown): boolean {
+  if (error instanceof GraphQLRequestError) return /api token/i.test(error.message);
   return error instanceof ApiError && (error.status === 401 || error.status === 403);
 }

@@ -293,7 +293,7 @@ function ConnectionSettings({ telemetry }: TelemetryPanelProps) {
         <SecretInput
           id={`${id}-token`}
           value={draft.token}
-          placeholder={proxied ? "provided by dev proxy" : "Bearer token"}
+          placeholder={proxied ? "provided by dev proxy" : "only needed to start/stop tracking"}
           onChange={(token) => setDraft({ ...draft, token })}
         />
         {proxied && !draft.token && <p className="hint">Token: provided by dev proxy (TELEMETRY_API_TOKEN).</p>}
@@ -316,8 +316,12 @@ function ConnectionSettings({ telemetry }: TelemetryPanelProps) {
         </div>
       </form>
       <p className="hint">
-        {settings.remember ? "Saved in this browser until you forget it." : "Saved for this session only."} The token
-        is only sent to the GraphQL URL.
+        {settings.remember
+          ? window.electronAPI
+            ? "Token saved in the OS keychain until you forget it."
+            : "Saved in this browser until you forget it."
+          : "Saved for this session only."}{" "}
+        The token is only sent to the GraphQL URL.
       </p>
     </details>
   );

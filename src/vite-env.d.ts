@@ -20,6 +20,15 @@ interface ElectronAPI {
   isElectron: true;
   platform: string;
   versions: { electron: string; chrome: string; node: string };
+  /** The telemetry API token, encrypted by the OS keychain in the main process. */
+  secrets: ElectronSecrets;
+}
+
+interface ElectronSecrets {
+  getTelemetryToken(): string | null;
+  /** False when no OS keychain is available (e.g. Linux without a keyring): nothing was saved. */
+  setTelemetryToken(token: string): boolean;
+  clearTelemetryToken(): void;
 }
 
 interface Window {
