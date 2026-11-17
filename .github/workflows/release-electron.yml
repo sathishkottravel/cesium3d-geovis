@@ -19,7 +19,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: lts/*
+          # Pinned: electron-forge make exits silently mid-package under Node 26 (no distributables).
+          node-version: 24
       - uses: oven-sh/setup-bun@v2
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
@@ -40,6 +41,7 @@ jobs:
         with:
           name: electron-${{ matrix.os }}
           path: out/make/**
+          if-no-files-found: error
 
   release:
     needs: make
@@ -52,4 +54,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
+          fail_on_unmatched_files: true
           generate_release_notes: true
